@@ -1,5 +1,6 @@
 #include <raylib.h>
 #include <keyboard_hook.h>
+#include <raygui.h>
 
 int main(void)
 {
@@ -9,33 +10,48 @@ int main(void)
     SetConfigFlags(
         FLAG_WINDOW_RESIZABLE);
 
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+    InitWindow(screenWidth, screenHeight, "rsoundboard");
     InstallKeyboardHook();
 
-    // TraceLog(LOG_INFO, "Size is %i", hookKeysSize);
-
-    int i = 0;
+    bool isSearchMenuVisible = false;
+    char *selectedDir = NULL;
 
     while (!WindowShouldClose())
     {
         BeginKeyboardHook();
-
         BeginDrawing();
         {
             ClearBackground(BLACK);
-            DrawText("Congrats! You created your first window!", 190, 200, 20, WHITE);
+            // int w = MeasureText("rsoundboard", 20);
+            // DrawText("rsoundboard", screenWidth / 2 - w / 2, screenHeight / 2, 20, WHITE);
 
             HookKey lastPressed = GetLastPressedKey();
             bool searchRequested = IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyDown(HK_F) && (lastPressed == HK_SPACE || lastPressed == HK_F);
 
-            if (searchRequested)
+            if (GuiButton((Rectangle){300, 200, 200, 40}, "Select Directory"))
             {
-                TraceLog(LOG_INFO, "Search pressed is %i. Last pressed %i", i, lastPressed);
-                i++;
+                // Open directory selection dialog
+                selectedDir = tinyfd_selectFolderDialog("Select a directory", NULL);
+
+                if (selectedDir)
+                {
+                    TraceLog(LOG_INFO, "Selected directory: %s", selectedDir);
+                }
+            }
+
+            if (searchRequested && !isSearchMenuVisible)
+            {
+                isSearchMenuVisible = true;
+
+                TraceLog(LOG_INFO, "Search menu triggered");
+
+                // if (selectedDir)
+                // {
+                //     DrawText(TextFormat("Selected: %s", selectedDir), 50, 250, 20, DARKGRAY);
+                // }
             }
         }
         EndDrawing();
-        EndKeyboardHook();
     }
 
     RemoveKeyboardHook();

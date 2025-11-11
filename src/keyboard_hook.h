@@ -130,5 +130,5 @@ void RemoveKeyboardHook();
 bool IsKeyboardHookKeyPressed(HookKey key);
 bool IsKeyboardHookKeyDown(HookKey key);
 void BeginKeyboardHook();
-void EndKeyboardHook();
+// void EndKeyboardHook();
 HookKey GetLastPressedKey();

@@ -120,10 +120,9 @@ void BeginKeyboardHook()
     }
 }
 
-void EndKeyboardHook()
-{
-}
-
+// void EndKeyboardHook()
+// {
+// }
 
 HookKey GetLastPressedKey()
 {

@@ -2,6 +2,7 @@
     "files.associations": {
         "*.embeddedhtml": "html",
         "stdio.h": "c",
-        "keyboard_hook.h": "c"
+        "keyboard_hook.h": "c",
+        "raygui.h": "c"
     }
 }

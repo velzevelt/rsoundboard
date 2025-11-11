@@ -19,6 +19,9 @@ option(IS_DEBUG_BUILD "Is debug build" ON)
 set(PROJECT_SRC
 	src/main.c
 	src/keyboard_hook.c
+
+	src/external/tinyfiledialogs/tinyfiledialogs.c
+	src/external/raygui/raygui.c
 	)
 
 add_executable(${PROJECT_NAME} ${PROJECT_SRC})
@@ -29,6 +32,8 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 target_include_directories(${PROJECT_NAME} PRIVATE src/external/raylib/src)
+target_include_directories(${PROJECT_NAME} PRIVATE src/external/raygui/)
+target_include_directories(${PROJECT_NAME} PRIVATE src/external/tinyfiledialogs/)
 
 if(WIN32)
 	if(IS_DEBUG_BUILD)
