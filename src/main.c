@@ -1,6 +1,9 @@
 #include <raylib.h>
 #include <keyboard_hook.h>
 #include <raygui.h>
+#include <nfd.h>
+#include <assert.h>
+#include <load_last_directory.h>
 
 int main(void)
 {
@@ -8,48 +11,100 @@ int main(void)
     const int screenHeight = 1080 / 2;
 
     SetConfigFlags(
-        FLAG_WINDOW_RESIZABLE);
+        FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_TRANSPARENT
+    );
 
     InitWindow(screenWidth, screenHeight, "rsoundboard");
+    SetExitKey(0);
     InstallKeyboardHook();
 
     bool isSearchMenuVisible = false;
     char *selectedDir = NULL;
+    // const char *soundExtensions = ".wav;.mp3";
+    const char *soundExtensions = ".wav";
+    FilePathList soundFiles = {0};
+
+    selectedDir = LoadLastDirectory();
+    if (selectedDir && DirectoryExists(selectedDir))
+    {
+        TraceLog(LOG_INFO, "Selected directory: %s", selectedDir);
+        soundFiles = LoadDirectoryFilesEx(selectedDir, soundExtensions, true);
+        SaveLastDirectory(selectedDir);
+    }
+    else
+    {
+        selectedDir = NULL;
+    }
 
     while (!WindowShouldClose())
     {
         BeginKeyboardHook();
+        HookKey lastPressed = GetLastPressedKey();
+
+        bool searchRequested = IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F) && (lastPressed == HK_SPACE || lastPressed == HK_F); 
+
         BeginDrawing();
         {
-            ClearBackground(BLACK);
-            // int w = MeasureText("rsoundboard", 20);
-            // DrawText("rsoundboard", screenWidth / 2 - w / 2, screenHeight / 2, 20, WHITE);
+            Color b = BLACK;
+            b.a = 255 * 0.5f;
+            ClearBackground(b);
 
-            HookKey lastPressed = GetLastPressedKey();
-            bool searchRequested = IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyDown(HK_F) && (lastPressed == HK_SPACE || lastPressed == HK_F);
-
-            if (GuiButton((Rectangle){300, 200, 200, 40}, "Select Directory"))
+            if (searchRequested)
             {
-                // Open directory selection dialog
-                selectedDir = tinyfd_selectFolderDialog("Select a directory", NULL);
+                isSearchMenuVisible = !isSearchMenuVisible;
+                TraceLog(LOG_INFO, "XXX %i", isSearchMenuVisible);
 
-                if (selectedDir)
+                if (isSearchMenuVisible)
                 {
-                    TraceLog(LOG_INFO, "Selected directory: %s", selectedDir);
+                    TraceLog(LOG_INFO, "X1");
+                    SetWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
+                    SetWindowFocused();
+                }
+                else
+                {
+                    ClearWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
                 }
             }
 
-            if (searchRequested && !isSearchMenuVisible)
+            if (IsKeyboardHookKeyPressed(HK_ESCAPE) && IsWindowState(FLAG_WINDOW_TOPMOST))
             {
-                isSearchMenuVisible = true;
-
-                TraceLog(LOG_INFO, "Search menu triggered");
-
-                // if (selectedDir)
-                // {
-                //     DrawText(TextFormat("Selected: %s", selectedDir), 50, 250, 20, DARKGRAY);
-                // }
+                ClearWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
+                isSearchMenuVisible = false;
             }
+
+            if (IsKeyPressed(KEY_C))
+            {
+                TraceLog(LOG_INFO, "C");
+            }
+
+            // if (selectedDir == NULL)
+            // {
+            //     if (GuiButton((Rectangle){300, 200, 200, 40}, "Select Sounds Directory"))
+            //     {
+            //         nfdresult_t result = NFD_PickFolder(NULL, &selectedDir);
+
+            //         if (result == NFD_OKAY)
+            //         {
+            //             TraceLog(LOG_INFO, "Selected directory: %s", selectedDir);
+            //             assert(DirectoryExists(selectedDir));
+            //             soundFiles = LoadDirectoryFilesEx(selectedDir, soundExtensions, true);
+            //             SaveLastDirectory(selectedDir);
+            //         }
+            //         else if (result == NFD_CANCEL)
+            //         {
+            //             TraceLog(LOG_INFO, "User pressed cancel.");
+            //         }
+            //         else
+            //         {
+            //             TraceLog(LOG_INFO, "Error: %s", NFD_GetError());
+            //         }
+            //     }
+            // }
+
+            // if (selectedDir)
+            // {
+            //     DrawText(TextFormat("Selected: %s files %i", selectedDir, soundFiles.count), 10, 10, 20, DARKGRAY);
+            // }
         }
         EndDrawing();
     }
