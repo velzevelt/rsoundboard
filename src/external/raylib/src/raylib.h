@@ -1628,9 +1628,9 @@ typedef void (*AudioCallback)(void *bufferData, unsigned int frames);
 RLAPI void InitAudioDevice(void);                                     // Initialize audio device and context
 RLAPI void PrintPlaybackAudioDevices(void);                           // Print info about available audio devices from the current context
 
-// ma_device_info ma_uint32
-// RLAPI void GetPlaybackDevices(void *devices, void *count);  // Print info about available audio devices from the current context
-RLAPI void GetPlaybackDevices(ma_device_info **devices, ma_uint32 *count);  // Print info about available audio devices from the current context
+RLAPI void GetPlaybackDevices(ma_device_info **devices, ma_uint32 *count);
+RLAPI void ChangePlaybackDevice(ma_device_info newDevice);
+RLAPI const char* GetCurrentPlaybackDeviceName(void);
 
 RLAPI void CloseAudioDevice(void);                                    // Close the audio device and context
 RLAPI bool IsAudioDeviceReady(void);                                  // Check if audio device has been initialized successfully

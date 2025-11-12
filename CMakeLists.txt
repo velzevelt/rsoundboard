@@ -40,7 +40,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE src/external/raylib/src)
 target_include_directories(${PROJECT_NAME} PRIVATE src/external/raylib/src/external/)
 target_include_directories(${PROJECT_NAME} PRIVATE src/external/raygui/)
 target_include_directories(${PROJECT_NAME} PRIVATE src/external/nativefiledialog/include/)
-# target_include_directories(${PROJECT_NAME} PRIVATE src/external/tinyfiledialogs/)
+target_include_directories(${PROJECT_NAME} PRIVATE src/external/layout/)
 
 if(WIN32)
 	if(IS_DEBUG_BUILD)

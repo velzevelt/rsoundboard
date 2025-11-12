@@ -559,6 +559,12 @@ void PrintPlaybackAudioDevices(void)
 
 void GetPlaybackDevices(ma_device_info **devices, ma_uint32 *count)
 {
+    if (!AUDIO.System.isReady)
+    {
+        TRACELOG(LOG_WARNING, "Failed to retrieve device information: %s\n", "Audio system is not initialized");
+        return;
+    }
+
     ma_result result = ma_context_get_devices(&AUDIO.System.context, devices, count, NULL, NULL);
     if (result != MA_SUCCESS)
     {
@@ -570,43 +576,89 @@ void GetPlaybackDevices(ma_device_info **devices, ma_uint32 *count)
     {
         printf("No playback devices found!\n");
     }
-
-    // ma_device_info *d = *devices;
-    // for (int i = 0; i < *count; i++)
-    // {
-    //     printf("%i %s\n", i, d[i].name);
-    // }
 }
 
-// void GetPlaybackDevices(void *devices, void *count)
-// {
-//     ma_device_info *d = (ma_device_info *) devices;
-//     ma_uint32 *c = (ma_uint32 *) count;
+void ChangePlaybackDevice(ma_device_info newDevice)
+{
+    TRACELOG(LOG_INFO, "AUDIO: Changing device from %s to %s", GetCurrentPlaybackDeviceName(), newDevice.name);
 
-//     ma_result result = ma_context_get_devices(&AUDIO.System.context, &d, c, NULL, NULL);
-//     if (result != MA_SUCCESS)
-//     {
-//         TRACELOG(LOG_WARNING, "Failed to retrieve device information: %s\n", ma_result_description(result));
-//         return;
-//     }
+    if (!AUDIO.System.isReady)
+    {
+        TRACELOG(LOG_WARNING, "AUDIO: Cannot change device - audio system not initialized");
+        return;
+    }
 
-//     if (c == NULL || *c == 0)
-//     {
-//         printf("No playback devices found!\n");
-//     }
+    // Stop and uninitialize the current device
+    ma_device_stop(&AUDIO.System.device);
+    ma_device_uninit(&AUDIO.System.device);
 
-//     // if (devices != NULL)
-//     // {
-//     //     printf("XUYAAAA!\n");
-//     //     // printf("aboba %s\n", (ma_device_info *) devices->name);
-//     //     ma_device_info *xuy = (ma_device_info *) devices;
-//     //     printf("aboba %s\n", xuy->name);
-//     // }
+    // Reinitialize device with the new playback device
+    ma_device_config config = ma_device_config_init(ma_device_type_playback);
+    config.playback.pDeviceID = &newDevice.id;  // Use the new device ID
+    config.playback.format = AUDIO_DEVICE_FORMAT;
+    config.playback.channels = AUDIO_DEVICE_CHANNELS;
+    config.capture.pDeviceID = NULL;
+    config.capture.format = ma_format_s16;
+    config.capture.channels = 1;
+    config.sampleRate = AUDIO_DEVICE_SAMPLE_RATE;
+    config.dataCallback = OnSendAudioDataToDevice;
+    config.pUserData = NULL;
 
-//     devices = d;
-//     printf("Address 1: %p, Address 2: %p", d, devices);
-// }
+    ma_result result = ma_device_init(&AUDIO.System.context, &config, &AUDIO.System.device);
+    if (result != MA_SUCCESS)
+    {
+        TRACELOG(LOG_WARNING, "AUDIO: Failed to initialize new playback device: %s", newDevice.name);
+        
+        // Try to fall back to default device
+        config.playback.pDeviceID = NULL;
+        result = ma_device_init(&AUDIO.System.context, &config, &AUDIO.System.device);
+        
+        if (result != MA_SUCCESS)
+        {
+            TRACELOG(LOG_ERROR, "AUDIO: Failed to initialize fallback default device");
+            AUDIO.System.isReady = false;
+            return;
+        }
+    }
 
+    // Start the new device
+    result = ma_device_start(&AUDIO.System.device);
+    if (result != MA_SUCCESS)
+    {
+        TRACELOG(LOG_WARNING, "AUDIO: Failed to start new playback device: %s", newDevice.name);
+        ma_device_uninit(&AUDIO.System.device);
+        AUDIO.System.isReady = false;
+        return;
+    }
+
+    TRACELOG(LOG_INFO, "AUDIO: Device changed successfully to %s", newDevice.name);
+    TRACELOG(LOG_INFO, "    > Backend:       miniaudio | %s", ma_get_backend_name(AUDIO.System.context.backend));
+    TRACELOG(LOG_INFO, "    > Format:        %s -> %s", ma_get_format_name(AUDIO.System.device.playback.format), ma_get_format_name(AUDIO.System.device.playback.internalFormat));
+    TRACELOG(LOG_INFO, "    > Channels:      %d -> %d", AUDIO.System.device.playback.channels, AUDIO.System.device.playback.internalChannels);
+    TRACELOG(LOG_INFO, "    > Sample rate:   %d -> %d", AUDIO.System.device.sampleRate, AUDIO.System.device.playback.internalSampleRate);
+    TRACELOG(LOG_INFO, "    > Periods size:  %d", AUDIO.System.device.playback.internalPeriodSizeInFrames*AUDIO.System.device.playback.internalPeriods);
+}
+
+const char* GetCurrentPlaybackDeviceName(void)
+{
+    if (!AUDIO.System.isReady) return "No device";
+    
+    // Note: This is a simplified approach. In practice, you might need to 
+    // enumerate devices to find the current one by ID
+    ma_device_info* playbackDevices = NULL;
+    ma_uint32 playbackDeviceCount = 0;
+    ma_context_get_devices(&AUDIO.System.context, &playbackDevices, &playbackDeviceCount, NULL, NULL);
+    
+    for (ma_uint32 i = 0; i < playbackDeviceCount; i++)
+    {
+        if (memcmp(&playbackDevices[i].id, &AUDIO.System.device.playback.id, sizeof(ma_device_id)) == 0)
+        {
+            return playbackDevices[i].name;
+        }
+    }
+    
+    return "Unknown device";
+}
 
 // Close the audio device for all contexts
 void CloseAudioDevice(void)
