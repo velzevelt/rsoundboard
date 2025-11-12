@@ -18,15 +18,15 @@ typedef enum
 
 static APP_STATE appState;
 
+const int SCREEN_WIDTH = 800;
+const int SCREEN_HEIGHT = 450;
+
 int main(void)
 {
-    const int screenWidth = 800;
-    const int screenHeight = 450;
-
     SetConfigFlags(
         FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_TRANSPARENT | FLAG_VSYNC_HINT);
 
-    InitWindow(screenWidth, screenHeight, "rsoundboard");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "rsoundboard");
 
     InitAudioDevice();
     SetExitKey(0);
@@ -58,6 +58,10 @@ void RunApplication()
     else if (appState == SOUNBOARD_SELECTION)
     {
         RunSounboardSelection();
+    }
+    else if (appState == SETTINGS)
+    {
+        RunSettings();
     }
     else
     {
@@ -135,6 +139,45 @@ void RunSounboardSelection()
     DrawText(t, w * 0.5f - textW / 2, h * 0.5f, 32, GREEN);
 }
 
+void RunSettings()
+{
+    ClearBackground(BLACK);
+    int w = GetScreenWidth();
+    int h = GetScreenHeight();
+
+    Rectangle menuArea = {0, 0, 0.9f, 0.9f};
+    menuArea.x = 0.5f - menuArea.width * 0.5f;
+    menuArea.y = 0.5f - menuArea.height * 0.5f;
+
+    Rectangle backButton = menuArea;
+    backButton.width = menuArea.width * 0.3f;
+    backButton.height = menuArea.height * 0.3f;
+    backButton.x = menuArea.x + menuArea.width * 0.5f - backButton.width * 0.5f;
+    backButton.y = menuArea.y + menuArea.height - backButton.height;
+
+    Rectangle backButtonText = RectPadding(backButton, 0.03f, 0.03f, 0.03f, 0.03f);
+
+    menuArea = RectToScreen(menuArea, w, h);
+    backButton = RectToScreen(backButton, w, h);
+    backButtonText = RectToScreen(backButtonText, w, h);
+
+    const char *backText = "Back";
+    int fontSize = 36 * GetScreenScale();
+    int spacing = 8 * GetScreenScale();
+
+    GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
+    GuiSetStyle(DEFAULT, TEXT_SPACING, spacing);
+    if (GuiButton(backButtonText, backText))
+    {
+        appState = MAIN_MENU;
+    }
+    GuiSetStyle(DEFAULT, TEXT_SPACING, 1);
+
+    DrawRectangleLinesEx(menuArea, 1.0f, RED);
+    DrawRectangleLinesEx(backButton, 1.0f, YELLOW);
+    DrawRectangleLinesEx(backButtonText, 1.0f, ORANGE);
+}
+
 Rectangle RectToScreen(Rectangle rect, int scrWidth, int scrHeight)
 {
     rect.height *= scrHeight;
@@ -199,4 +242,19 @@ int RectCalcFontSize(Rectangle target, Font font, const char *text, float spacin
 
     int n = nX > nY ? nY : nX;
     return n;
+}
+
+float GetAbsoluteScreenScaleX()
+{
+    return (float)GetScreenWidth() / SCREEN_WIDTH;
+}
+
+float GetAbsoluteScreenScaleY()
+{
+    return (float)GetScreenHeight() / SCREEN_HEIGHT;
+}
+
+float GetScreenScale()
+{
+    return GetScreenWidth() > GetScreenHeight() ? GetAbsoluteScreenScaleY() : GetAbsoluteScreenScaleX();
 }
