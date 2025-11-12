@@ -4,7 +4,7 @@
 void RunApplication();
 void RunMainMenu();
 void RunInvalidState();
-void RunSounboardSelection();
+void RunSoundboard();
 void RunSettings();
 Rectangle RectToScreen(Rectangle rect, int scrWidth, int scrHeight);
 Rectangle RectPadding(Rectangle rect, float pTop, float pBottom, float pRight, float pLeft);

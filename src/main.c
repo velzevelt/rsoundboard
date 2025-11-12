@@ -12,7 +12,7 @@ typedef enum
 {
     NONE,
     MAIN_MENU,
-    SOUNBOARD_SELECTION,
+    SOUNDBOARD,
     SETTINGS,
 } APP_STATE;
 
@@ -55,9 +55,9 @@ void RunApplication()
     {
         RunMainMenu();
     }
-    else if (appState == SOUNBOARD_SELECTION)
+    else if (appState == SOUNDBOARD)
     {
-        RunSounboardSelection();
+        RunSoundboard();
     }
     else if (appState == SETTINGS)
     {
@@ -102,7 +102,7 @@ void RunMainMenu()
     GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
     if (GuiButton(vertButton1, "Select Soundboard"))
     {
-        appState = SOUNBOARD_SELECTION;
+        appState = SOUNDBOARD;
     }
 
     fontSize = RectCalcFontSize(vertButton2Text, GetFontDefault(), "Settings", 0);
@@ -128,15 +128,31 @@ void RunInvalidState()
     DrawText("INVALID APP STATE", w * 0.5f - textW / 2, h * 0.5f, 32, RED);
 }
 
-void RunSounboardSelection()
+void RunSoundboard()
 {
     ClearBackground(BLACK);
     int w = GetScreenWidth();
     int h = GetScreenHeight();
 
-    const char *t = "SOUNBOARD SELECTION";
+    const char *t = "SOUNDBOARD";
     int textW = MeasureText(t, 32);
     DrawText(t, w * 0.5f - textW / 2, h * 0.5f, 32, GREEN);
+
+    static Sound testSound;
+    if (!IsSoundValid(testSound))
+    {
+        testSound = LoadSound("freeman.wav");
+    }
+
+    if (IsKeyDown(KEY_SPACE) && IsSoundValid(testSound) && !IsSoundPlaying(testSound))
+    {
+        PlaySound(testSound);
+    }
+
+    if (IsKeyPressed(KEY_ESCAPE))
+    {
+        appState = MAIN_MENU;
+    }
 }
 
 void RunSettings()
@@ -155,11 +171,16 @@ void RunSettings()
     backButton.x = menuArea.x + menuArea.width * 0.5f - backButton.width * 0.5f;
     backButton.y = menuArea.y + menuArea.height - backButton.height;
 
+    Rectangle selectAudioDeviceButton = menuArea;
+    selectAudioDeviceButton.height -= backButton.height;
+    selectAudioDeviceButton = RectPadding(selectAudioDeviceButton, 0, 0.03f, 0, 0);
+
     Rectangle backButtonText = RectPadding(backButton, 0.03f, 0.03f, 0.03f, 0.03f);
 
     menuArea = RectToScreen(menuArea, w, h);
     backButton = RectToScreen(backButton, w, h);
     backButtonText = RectToScreen(backButtonText, w, h);
+    selectAudioDeviceButton = RectToScreen(selectAudioDeviceButton, w, h);
 
     const char *backText = "Back";
     int fontSize = 36 * GetScreenScale();
@@ -173,9 +194,82 @@ void RunSettings()
     }
     GuiSetStyle(DEFAULT, TEXT_SPACING, 1);
 
+    fontSize = 22 * GetScreenScale();
+    spacing = 6 * GetScreenScale();
+
+    Vector2 tPos = {selectAudioDeviceButton.x, selectAudioDeviceButton.y};
+    const char *selectText = "Select new audio device";
+    Vector2 tSize = MeasureTextEx(GetFontDefault(), selectText, fontSize, spacing);
+    DrawTextEx(GetFontDefault(), selectText, tPos, fontSize, spacing, RED);
+
+    const char *currentAudioDevice = GetCurrentPlaybackDeviceName();
+    const char *fullCurrentDeviceName = TextFormat("Current: %s", currentAudioDevice);
+    tPos.y += tSize.y + tSize.y * 0.1f;
+    DrawTextEx(GetFontDefault(), fullCurrentDeviceName, tPos, fontSize, spacing, YELLOW);
+
+    Rectangle scrollArea = {tPos.x, tPos.y, selectAudioDeviceButton.width, selectAudioDeviceButton.height - tPos.y};
+    
+    ma_device_info *playbackDevices = 0;
+    ma_uint32 playbackDevicesCount = 0;
+    GetPlaybackDevices(&playbackDevices, &playbackDevicesCount);
+
+    tSize = MeasureTextEx(GetFontDefault(), fullCurrentDeviceName, fontSize, spacing);
+    tPos.y += tSize.y + tSize.y * 0.5f;
+
+    static int clickedId;
+
+    for (int i = 0; i < playbackDevicesCount; i++)
+    {
+        const char *deviceName = playbackDevices[i].name;
+
+        Color hoverColor = YELLOW;
+        Color normalColor = RED;
+        Color clickedColor = WHITE;
+        Color c = normalColor;
+
+        Rectangle rec = {tPos.x, tPos.y, scrollArea.width, tSize.y};
+
+        if (CheckCollisionPointRec(GetMousePosition(), rec))
+        {
+            c = hoverColor;
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+            {
+                c = clickedColor;
+                clickedId = i;
+            }
+            else if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT) && clickedId == i)
+            {
+                ChangePlaybackDevice(playbackDevices[i]);
+                // TraceLog(LOG_INFO, "CLICK %i", clickedId);
+            }
+        }
+        else if (clickedId == i)
+        {
+            clickedId = -1;
+        }
+
+        DrawRectangleRec(rec, c);
+
+        DrawTextEx(GetFontDefault(), deviceName, tPos, fontSize, spacing, ORANGE);  
+        tSize = MeasureTextEx(GetFontDefault(), deviceName, fontSize, spacing);
+        tPos.y += tSize.y + tSize.y * 0.5f;
+    }
+
+    // for (int i = 0; i < playbackDevicesCount; i++)
+    // {
+    //     const char *deviceName = playbackDevices[i].name;
+    //     DrawTextEx(GetFontDefault(), deviceName, tPos, fontSize, spacing, ORANGE);  
+
+    //     tSize = MeasureTextEx(GetFontDefault(), deviceName, fontSize, spacing);
+    //     tPos.y += tSize.y + tSize.y * 0.5f;
+    // }
+
+
     DrawRectangleLinesEx(menuArea, 1.0f, RED);
     DrawRectangleLinesEx(backButton, 1.0f, YELLOW);
     DrawRectangleLinesEx(backButtonText, 1.0f, ORANGE);
+    DrawRectangleLinesEx(selectAudioDeviceButton, 1.0f, YELLOW);
+    DrawRectangleLinesEx(scrollArea, 1.0f, GREEN);
 }
 
 Rectangle RectToScreen(Rectangle rect, int scrWidth, int scrHeight)
@@ -257,4 +351,12 @@ float GetAbsoluteScreenScaleY()
 float GetScreenScale()
 {
     return GetScreenWidth() > GetScreenHeight() ? GetAbsoluteScreenScaleY() : GetAbsoluteScreenScaleX();
+}
+
+
+inline bool IsRectClicked(Rectangle collider, Vector2 mouseP)
+{
+    bool collision = CheckCollisionPointRec(mouseP, collider);
+    bool click = IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+    return collision && click;
 }
