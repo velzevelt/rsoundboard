@@ -1,4 +1,7 @@
 build/
+vs-build/
+winbuild/
+release-build/
 
 # Prerequisites
 *.d

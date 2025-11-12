@@ -17,17 +17,16 @@ set(raylib_TESTS OFF CACHE BOOL "Build raylib tests")
 option(IS_DEBUG_BUILD "Is debug build" ON)
 
 set(PROJECT_SRC
-	# src/main.c
-	# src/keyboard_hook.c
-	# src/load_last_directory.c
+	src/main.c
+	src/keyboard_hook.c
+	src/load_last_directory.c
 
-	# src/external/tinyfiledialogs/tinyfiledialogs.c
-	# src/external/raygui/raygui.c
+	src/external/raygui/raygui.c
 
-	# src/external/nativefiledialog/nfd_common.c
-	# src/external/nativefiledialog/nfd_win.cpp
+	src/external/nativefiledialog/nfd_common.c
+	src/external/nativefiledialog/nfd_win.cpp
 
-	src/miniaudio_devices.c
+	# src/miniaudio_devices.c
 	)
 
 add_executable(${PROJECT_NAME} ${PROJECT_SRC})
@@ -38,6 +37,7 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 target_include_directories(${PROJECT_NAME} PRIVATE src/external/raylib/src)
+target_include_directories(${PROJECT_NAME} PRIVATE src/external/raylib/src/external/)
 target_include_directories(${PROJECT_NAME} PRIVATE src/external/raygui/)
 target_include_directories(${PROJECT_NAME} PRIVATE src/external/nativefiledialog/include/)
 # target_include_directories(${PROJECT_NAME} PRIVATE src/external/tinyfiledialogs/)

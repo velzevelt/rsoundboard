@@ -521,6 +521,93 @@ void InitAudioDevice(void)
     AUDIO.System.isReady = true;
 }
 
+void PrintPlaybackAudioDevices(void)
+{
+    ma_device_info *playbackDevices = 0;
+    ma_uint32 playbackDevicesCount = 0;
+
+    ma_result result = ma_context_get_devices(&AUDIO.System.context, &playbackDevices, &playbackDevicesCount, NULL, NULL);
+    if (result != MA_SUCCESS)
+    {
+        TRACELOG(LOG_WARNING, "Failed to retrieve device information: %s\n", ma_result_description(result));
+        return;
+    }
+
+    printf("=== AUDIO PLAYBACK DEVICES (%d found) ===\n\n", playbackDevicesCount);
+
+    if (playbackDevicesCount == 0)
+    {
+        printf("No playback devices found!\n");
+    }
+    else
+    {
+        for (ma_uint32 i = 0; i < playbackDevicesCount; i++)
+        {
+            printf("Playback Device %d:\n", i);
+            printf("  Name: %s\n", playbackDevices[i].name);
+
+            // Device ID (format depends on backend)
+            // if (pCaptureDeviceInfos[i].id.type == ma_device_id_type_string) {
+            //     printf("  ID: %s\n", pCaptureDeviceInfos[i].id.name);
+            // }
+
+            printf("  Is Default: %s\n", playbackDevices[i].isDefault ? "Yes" : "No");
+            printf("\n");
+        }
+    }
+}
+
+void GetPlaybackDevices(ma_device_info **devices, ma_uint32 *count)
+{
+    ma_result result = ma_context_get_devices(&AUDIO.System.context, devices, count, NULL, NULL);
+    if (result != MA_SUCCESS)
+    {
+        TRACELOG(LOG_WARNING, "Failed to retrieve device information: %s\n", ma_result_description(result));
+        return;
+    }
+
+    if (count == NULL || *count == 0)
+    {
+        printf("No playback devices found!\n");
+    }
+
+    // ma_device_info *d = *devices;
+    // for (int i = 0; i < *count; i++)
+    // {
+    //     printf("%i %s\n", i, d[i].name);
+    // }
+}
+
+// void GetPlaybackDevices(void *devices, void *count)
+// {
+//     ma_device_info *d = (ma_device_info *) devices;
+//     ma_uint32 *c = (ma_uint32 *) count;
+
+//     ma_result result = ma_context_get_devices(&AUDIO.System.context, &d, c, NULL, NULL);
+//     if (result != MA_SUCCESS)
+//     {
+//         TRACELOG(LOG_WARNING, "Failed to retrieve device information: %s\n", ma_result_description(result));
+//         return;
+//     }
+
+//     if (c == NULL || *c == 0)
+//     {
+//         printf("No playback devices found!\n");
+//     }
+
+//     // if (devices != NULL)
+//     // {
+//     //     printf("XUYAAAA!\n");
+//     //     // printf("aboba %s\n", (ma_device_info *) devices->name);
+//     //     ma_device_info *xuy = (ma_device_info *) devices;
+//     //     printf("aboba %s\n", xuy->name);
+//     // }
+
+//     devices = d;
+//     printf("Address 1: %p, Address 2: %p", d, devices);
+// }
+
+
 // Close the audio device for all contexts
 void CloseAudioDevice(void)
 {
