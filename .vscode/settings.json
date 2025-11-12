@@ -3,6 +3,7 @@
         "*.embeddedhtml": "html",
         "stdio.h": "c",
         "keyboard_hook.h": "c",
-        "raygui.h": "c"
+        "raygui.h": "c",
+        "miniaudio.h": "c"
     }
 }

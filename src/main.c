@@ -15,8 +15,11 @@ int main(void)
     );
 
     InitWindow(screenWidth, screenHeight, "rsoundboard");
+    InitAudioDevice();
     SetExitKey(0);
     InstallKeyboardHook();
+
+    int deviceCount = GetAudioDeviceCount();
 
     bool isSearchMenuVisible = false;
     char *selectedDir = NULL;
@@ -111,5 +114,6 @@ int main(void)
 
     RemoveKeyboardHook();
     CloseWindow();
+    CloseAudioDevice();
     return 0;
 }
