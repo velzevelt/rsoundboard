@@ -10,6 +10,9 @@ int main(int argc, char **argv)
 {
     // printf("%s\n", argv[0]);
 
+    // Creates opengl context this way
+    InitWindow(1, 1, "dummy");
+
     if (argc == 1)
     {
         PrintUsageMessage(argv[0]);
@@ -32,11 +35,15 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    unsigned char *fileRawData = 0;
-    int fileDataSize = 0;
-    fileRawData = LoadFileData(filePath, &fileDataSize);
+    Image img = LoadImage(filePath);
 
-    if (!ExportDataAsCode(fileRawData, fileDataSize, outputPath))
+    if (!IsImageValid(img))
+    {
+        printf("Error: invalid image %s\n", filePath);
+        return 1; 
+    }
+
+    if (!ExportImageAsCode(img, outputPath))
     {
         printf("Error: generator failed %s\n", filePath);
         return 1;

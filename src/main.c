@@ -8,6 +8,7 @@
 #include <raylib.h>
 #include <font_sdf.h>
 #include <resources/hack_regular_font.h>
+#include <resources/app_icon.h>
 
 typedef enum
 {
@@ -39,6 +40,7 @@ static FilePathList SoundboardFiles;
 
 static Rectangle BeforeSearchWindow = {0};
 static Font SearchFont;
+static Image AppIcon;
 
 // const char *soundExtensions = ".wav;.mp3";
 #define SUPPORTED_SOUND_EXTENSIONS ".wav"
@@ -48,6 +50,18 @@ int main(void)
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_WINDOW_TRANSPARENT | FLAG_WINDOW_ALWAYS_RUN);
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "rsoundboard");
+
+    AppIcon = LoadImageFromMemory(".png", APP_ICON_DATA, APP_ICON_DATA_SIZE);
+
+    if (IsImageValid(AppIcon))
+    {
+        if (AppIcon.format != PIXELFORMAT_UNCOMPRESSED_R8G8B8A8)
+        {
+            TraceLog(LOG_WARNING, "App icon has incorrect format %i %s", AppIcon.format, rlGetPixelFormatName(AppIcon.format));
+        }
+
+        SetWindowIcon(AppIcon);
+    }
 
     InitAudioDevice();
     SetExitKey(0);
@@ -441,7 +455,7 @@ void RunSoundboardStatus()
     int fontSize = 32 * GetScreenScale();
     int spacing = 4 * GetScreenScale();
 
-    const char *text = TextFormat("Soundboard is ready (%i), \nuse space + f", 7);
+    const char *text = TextFormat("Soundboard is ready (%i),\nuse space + f \nrestore alt + f (only focused)", 7);
     Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, spacing);
     Vector2 textPos = {w * 0.5f - textSize.x * 0.5f, h * 0.5f - textSize.y};
     // RLAPI void DrawTextEx(Font font, const char *text, Vector2 position, float fontSize, float spacing, Color tint);
@@ -469,6 +483,12 @@ void RunSoundboardStatus()
     }
 
     bool wantToRestoreBeforeWindow = IsWindowFocused() && IsKeyboardHookKeyDown(HK_ALT) && IsKeyboardHookKeyPressed(HK_F);
+    
+    // if (IsKeyboardHookKeyDown(HK_ALT) && IsKeyboardHookKeyPressed(HK_F))
+    // {
+    //     printf("%i, %f, %f\n", IsWindowFocused(), BeforeSearchWindow.width, BeforeSearchWindow.height);
+    // }
+
     wantToRestoreBeforeWindow = wantToRestoreBeforeWindow && (BeforeSearchWindow.width > 0 && BeforeSearchWindow.height > 0);
 
     if (wantToRestoreBeforeWindow)

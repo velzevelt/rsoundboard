@@ -55,7 +55,30 @@ Shader GetSDFShader()
 
     if (!SDFLoadDone)
     {
-        SDF = LoadShader(0, "sdf_text.fs");
+        const char *fragmentShaderSource =
+            "#version 330 core\n"
+            "in vec2 fragTexCoord;\n"
+            "in vec4 fragColor;\n"
+            "uniform sampler2D texture0;\n"
+            "const float smoothing = 1.0 / 16.0;\n"
+            "uniform float outlineWidth;\n"
+            "uniform vec4 outlineColor;\n"
+            "out vec4 finalColor;\n"
+            "void main()\n"
+            "{\n"
+            "    float outerEdgeCenter = 0.5 - outlineWidth;\n"
+            "    float distance = texture(texture0, fragTexCoord).a;\n"
+            "    float alpha = smoothstep(outerEdgeCenter - smoothing, outerEdgeCenter + smoothing, distance);\n"
+            "    float border = smoothstep(0.5 - smoothing, 0.5 + smoothing, distance);\n"
+            "    vec4 color = vec4(\n"
+            "        mix(outlineColor.rgb, fragColor.rgb, border), \n"
+            "        mix(outlineColor.a, fragColor.a, border) * alpha\n"
+            "    );\n"
+            "    finalColor = color;\n"
+            "}\n";
+
+        // SDF = LoadShader(0, "sdf_text.fs");
+        SDF = LoadShaderFromMemory(0, fragmentShaderSource);
         SDFLoadDone = true;
     }
 

@@ -6,14 +6,11 @@ in vec4 fragColor;
 uniform sampler2D texture0;
 
 const float smoothing = 1.0 / 16.0;
-// const float outlineWidth = 3.0 / 16.0;
 uniform float outlineWidth;
 
 uniform vec4 outlineColor;
 
 out vec4 finalColor;
-
-// ref: https://stackoverflow.com/questions/26155614/outlining-a-font-with-a-shader-and-using-distance-field
 
 void main()
 {
