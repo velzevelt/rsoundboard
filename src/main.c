@@ -6,6 +6,7 @@
 #include <nfd.h>
 #include <raygui.h>
 #include <raylib.h>
+#include <resources/hack_regular_font.h>
 
 typedef enum
 {
@@ -27,17 +28,16 @@ typedef enum
     LD_DONE,
 } LOADING_STATE;
 
-static APP_STATE appState;
+static APP_STATE AppState;
 
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 450;
-const char *soundboardDir = NULL;
-static LOADING_STATE soundboardDirLoadingState;
-static FilePathList soundboardFiles;
+const char *SoundboardDir = NULL;
+static LOADING_STATE SoundboardDirLoadingState;
+static FilePathList SoundboardFiles;
 
-Rectangle beforeSearchWindow = {0};
-
-Vector2 scroll = {0, 0};
+static Rectangle BeforeSearchWindow = {0};
+static Font SearchFont;
 
 // const char *soundExtensions = ".wav;.mp3";
 #define SUPPORTED_SOUND_EXTENSIONS ".wav"
@@ -51,8 +51,9 @@ int main(void)
     InitAudioDevice();
     SetExitKey(0);
     InstallKeyboardHook();
-    // appState = MAIN_MENU;
-    appState = SOUNDBOARD_STATUS;
+    // AppState = MAIN_MENU;
+    AppState = SOUNDBOARD_STATUS;
+    SearchFont = LoadFont_HackRegularFont();
 
     while (!WindowShouldClose())
     {
@@ -72,35 +73,35 @@ int main(void)
 
 void RunApplication()
 {
-    if (appState == MAIN_MENU)
+    if (AppState == MAIN_MENU)
     {
         RunMainMenu();
     }
-    else if (appState == SOUNDBOARD_SELECTION)
+    else if (AppState == SOUNDBOARD_SELECTION)
     {
         RunSoundboardSelection();
     }
-    else if (appState == SETTINGS)
+    else if (AppState == SETTINGS)
     {
         RunSettings();
     }
-    else if (appState == SOUNDBOARD_LOADING)
+    else if (AppState == SOUNDBOARD_LOADING)
     {
         RunSoundboardLoading();
     }
-    else if (appState == SOUNDBOARD_STATUS)
+    else if (AppState == SOUNDBOARD_STATUS)
     {
         RunSoundboardStatus();
     }
-    else if (appState == SOUNDBOARD_TO_SEARCH)
+    else if (AppState == SOUNDBOARD_TO_SEARCH)
     {
         RunToSearch();
     }
-    else if (appState == SOUNDBOARD_SEARCH)
+    else if (AppState == SOUNDBOARD_SEARCH)
     {
         RunSearch();
     }
-    else if (appState == SOUNDBOARD_FROM_SEARCH)
+    else if (AppState == SOUNDBOARD_FROM_SEARCH)
     {
         RunFromSearch();
     }
@@ -143,13 +144,13 @@ void RunMainMenu()
     GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
     if (GuiButton(vertButton1, "Select Soundboard"))
     {
-        appState = SOUNDBOARD_SELECTION;
+        AppState = SOUNDBOARD_SELECTION;
     }
 
     fontSize = RectCalcFontSize(vertButton2Text, GetFontDefault(), "Settings", 0);
     if (GuiButton(vertButton2, "Settings"))
     {
-        appState = SETTINGS;
+        AppState = SETTINGS;
     }
 
     DrawRectangleLinesEx(menuArea, 1.0f, RED);
@@ -214,7 +215,7 @@ void RunSoundboardSelection()
     GuiSetStyle(DEFAULT, TEXT_SPACING, spacing);
     if (GuiButton(backButtonText, backText))
     {
-        appState = MAIN_MENU;
+        AppState = MAIN_MENU;
     }
 
     fontSize = 20 * GetScreenScale();
@@ -224,13 +225,13 @@ void RunSoundboardSelection()
 
     if (GuiButton(loadSoundBoardButton, "Load soundboard"))
     {
-        nfdresult_t result = NFD_PickFolder(NULL, &soundboardDir);
+        nfdresult_t result = NFD_PickFolder(NULL, &SoundboardDir);
 
         if (result == NFD_OKAY)
         {
-            TraceLog(LOG_INFO, "Selected directory: %s", soundboardDir);
-            appState = SOUNDBOARD_LOADING;
-            soundboardDirLoadingState = LD_NONE;
+            TraceLog(LOG_INFO, "Selected directory: %s", SoundboardDir);
+            AppState = SOUNDBOARD_LOADING;
+            SoundboardDirLoadingState = LD_NONE;
         }
         else if (result == NFD_CANCEL)
         {
@@ -286,7 +287,7 @@ void RunSettings()
     GuiSetStyle(DEFAULT, TEXT_SPACING, spacing);
     if (GuiButton(backButtonText, backText))
     {
-        appState = MAIN_MENU;
+        AppState = MAIN_MENU;
     }
     GuiSetStyle(DEFAULT, TEXT_SPACING, 1);
 
@@ -369,29 +370,29 @@ void RunSoundboardLoading()
 
     bool hasErrors = false;
 
-    if (soundboardDirLoadingState == LD_NONE)
+    if (SoundboardDirLoadingState == LD_NONE)
     {
-        soundboardDirLoadingState = LD_LOADING;
+        SoundboardDirLoadingState = LD_LOADING;
     }
-    else if (soundboardDirLoadingState == LD_LOADING)
+    else if (SoundboardDirLoadingState == LD_LOADING)
     {
-        if (soundboardDir == NULL)
+        if (SoundboardDir == NULL)
         {
             TraceLog(LOG_WARNING, "Directory is null");
             hasErrors = true;
-            soundboardDirLoadingState = LD_DONE;
+            SoundboardDirLoadingState = LD_DONE;
         }
-        else if (!DirectoryExists(soundboardDir))
+        else if (!DirectoryExists(SoundboardDir))
         {
-            TraceLog(LOG_WARNING, "Directory does not exists %s", soundboardDir);
+            TraceLog(LOG_WARNING, "Directory does not exists %s", SoundboardDir);
             hasErrors = true;
-            soundboardDirLoadingState = LD_DONE;
+            SoundboardDirLoadingState = LD_DONE;
         }
         else
         {
-            soundboardFiles = LoadDirectoryFilesEx(soundboardDir, SUPPORTED_SOUND_EXTENSIONS, true);
-            soundboardDirLoadingState = LD_DONE;
-            appState = SOUNDBOARD_STATUS;
+            SoundboardFiles = LoadDirectoryFilesEx(SoundboardDir, SUPPORTED_SOUND_EXTENSIONS, true);
+            SoundboardDirLoadingState = LD_DONE;
+            AppState = SOUNDBOARD_STATUS;
         }
     }
 
@@ -421,8 +422,8 @@ void RunSoundboardLoading()
 
         if (GuiButton(backButton, "Back"))
         {
-            appState = MAIN_MENU;
-            soundboardDirLoadingState = LD_NONE;
+            AppState = MAIN_MENU;
+            SoundboardDirLoadingState = LD_NONE;
         }
     }
 }
@@ -439,14 +440,37 @@ void RunSoundboardStatus()
     const char *text = TextFormat("Soundboard is ready (%i), \nuse space + f", 7);
     Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, spacing);
     Vector2 textPos = {w * 0.5f - textSize.x * 0.5f, h * 0.5f - textSize.y};
-
     // RLAPI void DrawTextEx(Font font, const char *text, Vector2 position, float fontSize, float spacing, Color tint);
     // // Draw text using font and additional parameters
     DrawTextEx(GetFontDefault(), text, textPos, fontSize, spacing, GREEN);
 
+    Vector2 backButtonSize = {w * 0.15f, h * 0.15f};
+    Rectangle backButton = {w * 0.5f - backButtonSize.x * 0.5f, h - backButtonSize.y, backButtonSize.x, backButtonSize.y};
+
+    fontSize = 32 * GetScreenScale();
+    spacing = 4 * GetScreenScale();
+
+    GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
+    GuiSetStyle(DEFAULT, TEXT_SPACING, spacing);
+    if (GuiButton(backButton, "Back"))
+    {
+        AppState = MAIN_MENU;
+        return;
+    }
+    GuiSetStyle(DEFAULT, TEXT_SPACING, 1);
+
     if (IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F))
     {
-        appState = SOUNDBOARD_TO_SEARCH;
+        AppState = SOUNDBOARD_TO_SEARCH;
+    }
+
+    bool wantToRestoreBeforeWindow = IsWindowFocused() && IsKeyboardHookKeyDown(HK_ALT) && IsKeyboardHookKeyPressed(HK_F);
+    wantToRestoreBeforeWindow = wantToRestoreBeforeWindow && (BeforeSearchWindow.width > 0 && BeforeSearchWindow.height > 0);
+
+    if (wantToRestoreBeforeWindow)
+    {    
+        SetWindowSize(BeforeSearchWindow.width, BeforeSearchWindow.height);
+        SetWindowPosition(BeforeSearchWindow.x, BeforeSearchWindow.y);
     }
 }
 
@@ -456,12 +480,12 @@ void RunToSearch()
     {
         Vector2 currentWindowPos = GetWindowPosition();
         Vector2 currentWindowSize = {GetScreenWidth(), GetScreenHeight()};
-        beforeSearchWindow =
+        BeforeSearchWindow =
             (Rectangle){currentWindowPos.x, currentWindowPos.y, currentWindowSize.x, currentWindowSize.y};
     }
 
-    // TraceLog(LOG_INFO, "Xuy %f %f %f %f", beforeSearchWindow.x, beforeSearchWindow.y, beforeSearchWindow.width,
-    //          beforeSearchWindow.height);
+    // TraceLog(LOG_INFO, "Xuy %f %f %f %f", BeforeSearchWindow.x, BeforeSearchWindow.y, BeforeSearchWindow.width,
+    //          BeforeSearchWindow.height);
 
     int currentMonitorId = GetCurrentMonitor();
     int monitorWidth = GetMonitorWidth(currentMonitorId);
@@ -476,7 +500,7 @@ void RunToSearch()
     SetWindowSize(newWindowSize.x, newWindowSize.y);
 
     SetWindowFocused();
-    appState = SOUNDBOARD_SEARCH;
+    AppState = SOUNDBOARD_SEARCH;
 }
 
 void RunSearch()
@@ -488,8 +512,24 @@ void RunSearch()
 
     if (IsKeyboardHookKeyPressed(HK_ESCAPE))
     {
-        appState = SOUNDBOARD_FROM_SEARCH;
+        AppState = SOUNDBOARD_FROM_SEARCH;
     }
+
+    Vector2 optionPosition = {0, 0};
+    Vector2 optionSize = {30, 5};
+
+    // int size = SoundboardFiles.count >= 10 ? 10 : SoundboardFiles.count;
+    int size = 10;
+    for (int i = 0; i < size; i++)
+    {
+        Rectangle rec = {optionPosition.x, optionPosition.y, optionSize.x, optionSize.y};
+        DrawRectangleRec(rec, RED);
+
+
+        optionPosition.y += 10;
+    }
+
+    DrawTextEx(SearchFont, "TEST", (Vector2){300, 300}, 120, 5, WHITE);
 }
 
 void RunFromSearch()
@@ -499,11 +539,11 @@ void RunFromSearch()
 
     ClearWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
 
-    // SetWindowSize(beforeSearchWindow.width, beforeSearchWindow.height);
-    // SetWindowPosition(beforeSearchWindow.x, beforeSearchWindow.y);
+    // SetWindowSize(BeforeSearchWindow.width, BeforeSearchWindow.height);
+    // SetWindowPosition(BeforeSearchWindow.x, BeforeSearchWindow.y);
 
     MinimizeWindow();
-    appState = SOUNDBOARD_STATUS;
+    AppState = SOUNDBOARD_STATUS;
 }
 
 Rectangle RectToScreen(Rectangle rect, int scrWidth, int scrHeight)

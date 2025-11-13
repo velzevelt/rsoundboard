@@ -11,8 +11,6 @@ static HHOOK keyboardHook = NULL;
 static int keyStates[KEYS_SIZE] = {HK_STATE_RELEASED}; // Track state of all virtual keys (0-255)
 
 static int thisFrameStates[KEYS_SIZE] = {HK_STATE_RELEASED}; // Track state of all virtual keys (0-255)
-// static int lastFrameStates[KEYS_SIZE] = {HK_STATE_RELEASED}; // Track state of all virtual keys (0-255)
-
 static int lastPressedKey = 0;
 
 // Keyboard hook procedure
@@ -23,21 +21,40 @@ LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         KBDLLHOOKSTRUCT *kbStruct = (KBDLLHOOKSTRUCT *)lParam;
         int key = (int)kbStruct->vkCode;
 
+        // printf("Key: %d, wParam: 0x%X, flags: 0x%X\n", key, wParam, kbStruct->flags);
+
+        // Map left/right modifier keys to their generic versions
+        switch (key)
+        {
+            case VK_LSHIFT:
+            case VK_RSHIFT:
+                key = VK_SHIFT;
+                break;
+            case VK_LCONTROL:
+            case VK_RCONTROL:
+                key = VK_CONTROL;
+                break;
+            case VK_LMENU:
+            case VK_RMENU:
+                key = VK_MENU;
+                break;
+        }
+
+
         if (key >= 0 && key < KEYS_SIZE)
         {
             if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)
             {
-                // HookKeyState keyState = keyStates[key];
                 keyStates[key] = HK_STATE_PRESSED;    
-
                 lastPressedKey = key;
             }
             else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP)
             {
-                // HookKeyState keyState = keyStates[key];
                 keyStates[key] = HK_STATE_UP;
             }
         }
+
+
     }
 
     // Pass to next hook
@@ -100,6 +117,8 @@ void BeginKeyboardHook()
     {
         HookKeyState actualState = keyStates[i];
         HookKeyState prevFrameState = thisFrameStates[i];
+
+        // if (i == VK_ALT)
 
         if (prevFrameState == HK_STATE_RELEASED && actualState == HK_STATE_PRESSED)
         {

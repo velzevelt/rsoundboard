@@ -49,6 +49,8 @@ if(WIN32)
         add_subdirectory(src/external/raylib)
 		target_link_libraries(${PROJECT_NAME} raylib)
 
+		add_subdirectory(src/tools)
+
 		if (MSVC)
 			target_compile_options(${PROJECT_NAME} PRIVATE /W4)
 		else ()
