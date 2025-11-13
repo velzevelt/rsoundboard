@@ -7,7 +7,7 @@
 #include <raygui.h>
 #include <raylib.h>
 #include <font_sdf.h>
-// #include <resources/hack_regular_font.h>
+#include <resources/hack_regular_font.h>
 
 typedef enum
 {
@@ -54,8 +54,10 @@ int main(void)
     InstallKeyboardHook();
     // AppState = MAIN_MENU;
     AppState = SOUNDBOARD_STATUS;
+
     // SearchFont = LoadFont_HackRegularFont();
-    SearchFont = LoadFontSDF("Hack-Regular.ttf", 32);
+    // SearchFont = LoadFontSDF("Hack-Regular.ttf", 32);
+    SearchFont = LoadFontSDFFromMemory(HACK_REGULAR_FONT_DATA, HACK_REGULAR_FONT_DATA_SIZE, 32);
 
     while (!WindowShouldClose())
     {

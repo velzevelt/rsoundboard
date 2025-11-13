@@ -1071,7 +1071,7 @@ bool ExportFontAsCode(Font font, const char *fileName)
     byteCount += sprintf(txtData + byteCount, "    Image imFont = { fontImageData_%s, %i, %i, 1, %i };\n\n", styleName, image.width, image.height, image.format);
 #endif
     byteCount += sprintf(txtData + byteCount, "    // Load texture from image\n");
-    byteCount += sprintf(txtData + byteCount, "    if (isGpuReady) font.texture = LoadTextureFromImage(imFont);\n");
+    byteCount += sprintf(txtData + byteCount, "    if (IsWindowReady()) font.texture = LoadTextureFromImage(imFont);\n");
 #if defined(SUPPORT_COMPRESSED_FONT_ATLAS)
     byteCount += sprintf(txtData + byteCount, "    UnloadImage(imFont);  // Uncompressed data can be unloaded from memory\n\n");
 #endif
@@ -1079,7 +1079,7 @@ bool ExportFontAsCode(Font font, const char *fileName)
     // that data is already available as global arrays, we two options to assign that data:
     //  - 1. Data copy. This option consumes more memory and Font MUST be unloaded by user, requiring additional code
     //  - 2. Data assignment. This option consumes less memory and Font MUST NOT be unloaded by user because data is on protected DATA segment
-//#define SUPPORT_FONT_DATA_COPY
+// #define SUPPORT_FONT_DATA_COPY
 #if defined(SUPPORT_FONT_DATA_COPY)
     byteCount += sprintf(txtData + byteCount, "    // Copy glyph recs data from global fontRecs\n");
     byteCount += sprintf(txtData + byteCount, "    // NOTE: Required to avoid issues if trying to free font\n");

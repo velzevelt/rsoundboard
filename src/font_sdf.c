@@ -22,11 +22,8 @@
 //     return fontSDF;
 // }
 
-Font LoadFontSDF(const char *fontName, int fontSize)
+Font LoadFontSDFFromMemory(unsigned char *fileData, int fileSize, int fontSize)
 {
-    int fileSize = 0;
-    unsigned char *fileData = LoadFileData(fontName, &fileSize);
-
     // SDF font generation from TTF font
     Font fontSDF = {0};
     fontSDF.baseSize = fontSize;
@@ -39,8 +36,15 @@ Font LoadFontSDF(const char *fontName, int fontSize)
     SetTextureFilter(fontSDF.texture, TEXTURE_FILTER_TRILINEAR); // Required for SDF font
     UnloadImage(atlas);
 
-    UnloadFileData(fileData);
+    return fontSDF;
+}
 
+Font LoadFontSDF(const char *fontName, int fontSize)
+{
+    int fileSize = 0;
+    unsigned char *fileData = LoadFileData(fontName, &fileSize);
+    Font fontSDF = LoadFontSDFFromMemory(fileData, fileSize, fontSize);
+    UnloadFileData(fileData);
     return fontSDF;
 }
 

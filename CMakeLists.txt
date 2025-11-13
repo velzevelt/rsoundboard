@@ -13,7 +13,6 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(raylib_EXAMPLES OFF CACHE BOOL "Build raylib examples")
 set(raylib_TESTS OFF CACHE BOOL "Build raylib tests")
 
-
 option(IS_DEBUG_BUILD "Is debug build" ON)
 
 set(PROJECT_SRC
