@@ -1,7 +1,6 @@
 #include "app.h"
 #include <assert.h>
 #include <keyboard_hook.h>
-#include <load_last_directory.h>
 #include <math.h>
 #include <miniaudio.h>
 #include <nfd.h>
@@ -38,7 +37,7 @@ static FilePathList soundboardFiles;
 
 Rectangle beforeSearchWindow = {0};
 
-Vector2 scroll = { 0, 0 };
+Vector2 scroll = {0, 0};
 
 // const char *soundExtensions = ".wav;.mp3";
 #define SUPPORTED_SOUND_EXTENSIONS ".wav"
@@ -441,11 +440,11 @@ void RunSoundboardStatus()
     Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, spacing);
     Vector2 textPos = {w * 0.5f - textSize.x * 0.5f, h * 0.5f - textSize.y};
 
-    // RLAPI void DrawTextEx(Font font, const char *text, Vector2 position, float fontSize, float spacing, Color tint); // Draw text using font and additional parameters
-    DrawTextEx(GetFontDefault(), text, textPos, fontSize, spacing, GREEN); 
+    // RLAPI void DrawTextEx(Font font, const char *text, Vector2 position, float fontSize, float spacing, Color tint);
+    // // Draw text using font and additional parameters
+    DrawTextEx(GetFontDefault(), text, textPos, fontSize, spacing, GREEN);
 
-
-    if (IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyDown(HK_F))
+    if (IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F))
     {
         appState = SOUNDBOARD_TO_SEARCH;
     }
@@ -453,13 +452,16 @@ void RunSoundboardStatus()
 
 void RunToSearch()
 {
-    Vector2 currentWindowPos = GetWindowPosition();
-    Vector2 currentWindowSize = {GetScreenWidth(), GetScreenHeight()};
-    beforeSearchWindow = (Rectangle) {currentWindowPos.x, currentWindowPos.y, currentWindowSize.x, currentWindowSize.y};
+    if (!IsWindowMinimized())
+    {
+        Vector2 currentWindowPos = GetWindowPosition();
+        Vector2 currentWindowSize = {GetScreenWidth(), GetScreenHeight()};
+        beforeSearchWindow =
+            (Rectangle){currentWindowPos.x, currentWindowPos.y, currentWindowSize.x, currentWindowSize.y};
+    }
 
-    // SetWindowState(FLAG_WINDOW_TRANSPARENT | FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
-    
-    SetWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
+    // TraceLog(LOG_INFO, "Xuy %f %f %f %f", beforeSearchWindow.x, beforeSearchWindow.y, beforeSearchWindow.width,
+    //          beforeSearchWindow.height);
 
     int currentMonitorId = GetCurrentMonitor();
     int monitorWidth = GetMonitorWidth(currentMonitorId);
@@ -469,11 +471,11 @@ void RunToSearch()
 
     RestoreWindow();
 
-    SetWindowSize(newWindowSize.x, newWindowSize.y);
+    SetWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
     SetWindowPosition(0, 0);
+    SetWindowSize(newWindowSize.x, newWindowSize.y);
 
     SetWindowFocused();
- 
     appState = SOUNDBOARD_SEARCH;
 }
 
@@ -491,14 +493,16 @@ void RunSearch()
 }
 
 void RunFromSearch()
-{ 
+{
+    SetWindowSize(0, 0);
+    SetWindowPosition(0, 0);
+
     ClearWindowState(FLAG_WINDOW_UNDECORATED | FLAG_WINDOW_TOPMOST);
 
+    // SetWindowSize(beforeSearchWindow.width, beforeSearchWindow.height);
+    // SetWindowPosition(beforeSearchWindow.x, beforeSearchWindow.y);
+
     MinimizeWindow();
-
-    SetWindowSize(beforeSearchWindow.width, beforeSearchWindow.height);
-    SetWindowPosition(beforeSearchWindow.x, beforeSearchWindow.y);
-
     appState = SOUNDBOARD_STATUS;
 }
 

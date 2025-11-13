@@ -19,14 +19,14 @@ option(IS_DEBUG_BUILD "Is debug build" ON)
 set(PROJECT_SRC
 	src/main.c
 	src/keyboard_hook.c
-	src/load_last_directory.c
 
 	src/external/raygui/raygui.c
 
 	src/external/nativefiledialog/nfd_common.c
 	src/external/nativefiledialog/nfd_win.cpp
 
-	# src/miniaudio_devices.c
+	icon.rc
+
 	)
 
 add_executable(${PROJECT_NAME} ${PROJECT_SRC})

@@ -56,11 +56,11 @@ void InstallKeyboardHook()
     keyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, GetModuleHandle(NULL), 0);
     if (!keyboardHook)
     {
-        printf("Failed to install keyboard hook!\n");
+        printf("Failed to install keyboard hook\n");
     }
     else
     {
-        printf("Global keyboard hook installed successfully!\n");
+        printf("Global keyboard hook installed successfully\n");
     }
 }
 
@@ -71,7 +71,7 @@ void RemoveKeyboardHook()
     {
         UnhookWindowsHookEx(keyboardHook);
         keyboardHook = NULL;
-        printf("Global keyboard hook removed!\n");
+        printf("Global keyboard hook removed\n");
     }
 }
 
