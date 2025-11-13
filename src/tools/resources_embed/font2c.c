@@ -44,6 +44,8 @@ int main(int argc, char **argv)
     }
 
     Font font = LoadFont(fontPath);
+
+    // Font font = LoadFontSDF(fontPath);
     if (!IsFontValid(font))
     {
         printf("Error: invalid font %s\n", fontPath);

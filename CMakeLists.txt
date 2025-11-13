@@ -19,6 +19,7 @@ option(IS_DEBUG_BUILD "Is debug build" ON)
 set(PROJECT_SRC
 	src/main.c
 	src/keyboard_hook.c
+	src/font_sdf.c
 
 	src/external/raygui/raygui.c
 
