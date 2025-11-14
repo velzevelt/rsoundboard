@@ -11,6 +11,7 @@
 #include <resources/hack_regular_font.h>
 #include <string.h>
 #include <text_input_box.h>
+#include <search_file.h>
 
 typedef enum
 {
@@ -39,6 +40,7 @@ const int SCREEN_HEIGHT = 450;
 static const char *SoundboardDir = NULL;
 static LOADING_STATE SoundboardDirLoadingState;
 static FilePathList SoundboardFiles;
+static FilteredFilePathList SearchCandidates;
 
 static Rectangle BeforeSearchWindow = {0};
 static Font SearchFont;
@@ -73,8 +75,8 @@ int main(void)
     InitAudioDevice();
     SetExitKey(0);
     InstallKeyboardHook();
-    // AppState = MAIN_MENU;
-    AppState = SOUNDBOARD_STATUS;
+    AppState = MAIN_MENU;
+    // AppState = SOUNDBOARD_STATUS;
 
     // SearchFont = LoadFont_HackRegularFont();
     // SearchFont = LoadFontSDF("Hack-Regular.ttf", 32);
@@ -415,8 +417,10 @@ void RunSoundboardLoading()
         }
         else
         {
+            UnloadDirectoryFiles(SoundboardFiles);
             SoundboardFiles = LoadDirectoryFilesEx(SoundboardDir, SUPPORTED_SOUND_EXTENSIONS, true);
             SoundboardDirLoadingState = LD_DONE;
+            SearchCandidates = SearchInFileListNoAlloc(&SoundboardFiles, "", 16);
             AppState = SOUNDBOARD_STATUS;
         }
     }
@@ -462,7 +466,7 @@ void RunSoundboardStatus()
     int fontSize = 32 * GetScreenScale();
     int spacing = 4 * GetScreenScale();
 
-    const char *text = TextFormat("Soundboard is ready (%i),\nuse alt + f \nrestore space + f (only focused)", 7);
+    const char *text = TextFormat("Soundboard is ready (%i),\nuse alt + f \nrestore space + f (only focused)", SoundboardFiles.count);
     Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, spacing);
     Vector2 textPos = {w * 0.5f - textSize.x * 0.5f, h * 0.5f - textSize.y};
     // RLAPI void DrawTextEx(Font font, const char *text, Vector2 position, float fontSize, float spacing, Color tint);
@@ -571,17 +575,29 @@ void RunSearch()
     GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
 
     BeginShaderMode(GetSDFShader());
-    
     char *searchOut = TextInputBox(searchBoxInner, "Enter song name...", SearchText, SEARCH_TEXT_SIZE, &SearchTextLetterCount);
-    if (searchOut)
-    {
-        printf("Search out %s\n", searchOut);
-    }
-    
     EndShaderMode();
-
     GuiSetFont(GetFontDefault());
+    
+    // if (searchOut)
+    // {
+    //     printf("Search out %s\n", searchOut);
+    // }
 
+    if (searchOut && strnlen(SearchText, SEARCH_TEXT_SIZE) > 0)
+    {
+        SearchCandidates = SearchInFileListNoAlloc(&SoundboardFiles, searchOut, 16);
+        printf("Search can %i\n", SearchCandidates.count);
+    }
+
+    Rectangle itemRect = {0, 0, 30, 30};
+    for (int i = 0; i < SearchCandidates.count; i++)
+    {
+        DrawRectangleRec(itemRect, RED);
+        itemRect.y += 33;
+    }
+
+    // printf("Count %i\n", SearchSoundboardFiles.count);
     DrawRectangleLinesEx(searchBoxOuter, 1, RED);
     DrawRectangleLinesEx(searchBoxInner, 1, GREEN);
     DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
@@ -627,9 +643,26 @@ char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int ma
     int key = GetCharPressed();
 
     bool wasChanged = false;
+    bool pasted = false;
+
+    if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_V))
+    {
+        char *clipboardText = GetClipboardText();
+        int clipboardTextLen = strlen(clipboardText);
+        int currentTextLen = strnlen(text, maxTextSize);
+        if (clipboardTextLen > 0)
+        {
+            strncat(text, clipboardText, maxTextSize);
+            int newLetterCount = clipboardTextLen + currentTextLen;
+            letterCount = newLetterCount > maxTextSize ? maxTextSize : newLetterCount;
+            wasChanged = true;
+            pasted = true;
+            TraceLog(LOG_INFO, "Text pasted %i", letterCount);
+        }
+    }
 
     // Check if more characters have been pressed on the same frame
-    while (key > 0)
+    while (key > 0 && !pasted)
     {
         // printf("Key pressed %c\n", (char) key);
 
@@ -688,8 +721,14 @@ char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int ma
         text[letterCount] = '\0';
     }
 
+    int textLen = strnlen(text, maxTextSize); 
+    char *xuy = textLen == 0 ? placeholder : text;
 
-    char *xuy = strnlen(text, maxTextSize) == 0 ? placeholder : text;
+    if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_C) && textLen > 0)
+    {
+        SetClipboardText(text);
+        TraceLog(LOG_INFO, "Text copied");
+    }
 
     // printf("XUY %s\n", xuy);
 
@@ -710,3 +749,5 @@ char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int ma
         return NULL;
     }
 }
+
+
