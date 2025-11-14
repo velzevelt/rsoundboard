@@ -1,14 +1,16 @@
 #include "app.h"
 #include <assert.h>
+#include <font_sdf.h>
 #include <keyboard_hook.h>
-#include <math.h>
 #include <miniaudio.h>
 #include <nfd.h>
 #include <raygui.h>
 #include <raylib.h>
-#include <font_sdf.h>
-#include <resources/hack_regular_font.h>
+#include <rect_utils.h>
 #include <resources/app_icon.h>
+#include <resources/hack_regular_font.h>
+#include <string.h>
+#include <text_input_box.h>
 
 typedef enum
 {
@@ -34,13 +36,17 @@ static APP_STATE AppState;
 
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 450;
-const char *SoundboardDir = NULL;
+static const char *SoundboardDir = NULL;
 static LOADING_STATE SoundboardDirLoadingState;
 static FilePathList SoundboardFiles;
 
 static Rectangle BeforeSearchWindow = {0};
 static Font SearchFont;
 static Image AppIcon;
+
+#define SEARCH_TEXT_SIZE 32
+static char SearchText[SEARCH_TEXT_SIZE + 1] = "\0";
+static int SearchTextLetterCount = 0;
 
 // const char *soundExtensions = ".wav;.mp3";
 #define SUPPORTED_SOUND_EXTENSIONS ".wav"
@@ -57,7 +63,8 @@ int main(void)
     {
         if (AppIcon.format != PIXELFORMAT_UNCOMPRESSED_R8G8B8A8)
         {
-            TraceLog(LOG_WARNING, "App icon has incorrect format %i %s", AppIcon.format, rlGetPixelFormatName(AppIcon.format));
+            TraceLog(LOG_WARNING, "App icon has incorrect format %i %s", AppIcon.format,
+                     rlGetPixelFormatName(AppIcon.format));
         }
 
         SetWindowIcon(AppIcon);
@@ -455,7 +462,7 @@ void RunSoundboardStatus()
     int fontSize = 32 * GetScreenScale();
     int spacing = 4 * GetScreenScale();
 
-    const char *text = TextFormat("Soundboard is ready (%i),\nuse space + f \nrestore alt + f (only focused)", 7);
+    const char *text = TextFormat("Soundboard is ready (%i),\nuse alt + f \nrestore space + f (only focused)", 7);
     Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, spacing);
     Vector2 textPos = {w * 0.5f - textSize.x * 0.5f, h * 0.5f - textSize.y};
     // RLAPI void DrawTextEx(Font font, const char *text, Vector2 position, float fontSize, float spacing, Color tint);
@@ -463,7 +470,8 @@ void RunSoundboardStatus()
     DrawTextEx(GetFontDefault(), text, textPos, fontSize, spacing, GREEN);
 
     Vector2 backButtonSize = {w * 0.15f, h * 0.15f};
-    Rectangle backButton = {w * 0.5f - backButtonSize.x * 0.5f, h - backButtonSize.y, backButtonSize.x, backButtonSize.y};
+    Rectangle backButton = {w * 0.5f - backButtonSize.x * 0.5f, h - backButtonSize.y, backButtonSize.x,
+                            backButtonSize.y};
 
     fontSize = 32 * GetScreenScale();
     spacing = 4 * GetScreenScale();
@@ -477,22 +485,24 @@ void RunSoundboardStatus()
     }
     GuiSetStyle(DEFAULT, TEXT_SPACING, 1);
 
-    if (IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F))
+    if (IsKeyboardHookKeyDown(HK_ALT) && IsKeyboardHookKeyPressed(HK_F))
     {
         AppState = SOUNDBOARD_TO_SEARCH;
     }
 
-    bool wantToRestoreBeforeWindow = IsWindowFocused() && IsKeyboardHookKeyDown(HK_ALT) && IsKeyboardHookKeyPressed(HK_F);
-    
+    bool wantToRestoreBeforeWindow =
+        IsWindowFocused() && IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F);
+
     // if (IsKeyboardHookKeyDown(HK_ALT) && IsKeyboardHookKeyPressed(HK_F))
     // {
     //     printf("%i, %f, %f\n", IsWindowFocused(), BeforeSearchWindow.width, BeforeSearchWindow.height);
     // }
 
-    wantToRestoreBeforeWindow = wantToRestoreBeforeWindow && (BeforeSearchWindow.width > 0 && BeforeSearchWindow.height > 0);
+    wantToRestoreBeforeWindow =
+        wantToRestoreBeforeWindow && (BeforeSearchWindow.width > 0 && BeforeSearchWindow.height > 0);
 
     if (wantToRestoreBeforeWindow)
-    {    
+    {
         SetWindowSize(BeforeSearchWindow.width, BeforeSearchWindow.height);
         SetWindowPosition(BeforeSearchWindow.x, BeforeSearchWindow.y);
     }
@@ -525,12 +535,18 @@ void RunToSearch()
 
     SetWindowFocused();
     AppState = SOUNDBOARD_SEARCH;
+
+    strcpy(SearchText, "");
+    SearchTextLetterCount = 0;
 }
 
 void RunSearch()
 {
     Color c = BLACK;
     c.a = 255 * 0.5f;
+    int w = GetScreenWidth();
+    int h = GetScreenHeight();
+    float scale = GetScreenScale();
 
     ClearBackground(c);
 
@@ -539,30 +555,30 @@ void RunSearch()
         AppState = SOUNDBOARD_FROM_SEARCH;
     }
 
-    Vector2 optionPosition = {0, 0};
-    Vector2 optionSize = {30, 5};
+    Rectangle searchBoxOuter = {0, 0, 1.0f, 0.2f};
+    Rectangle soundBoxOuter = {0, searchBoxOuter.height, 1.0f, 1.0f - searchBoxOuter.height};
 
-    // int size = SoundboardFiles.count >= 10 ? 10 : SoundboardFiles.count;
-    int size = 10;
-    for (int i = 0; i < size; i++)
-    {
-        Rectangle rec = {optionPosition.x, optionPosition.y, optionSize.x, optionSize.y};
-        DrawRectangleRec(rec, RED);
+    Rectangle searchBoxInner = RectPaddingAll(searchBoxOuter, 0.065f);
 
+    searchBoxOuter = RectToScreen(searchBoxOuter, w, h);
+    soundBoxOuter = RectToScreen(soundBoxOuter, w, h);
+    searchBoxInner = RectToScreen(searchBoxInner, w, h);
 
-        optionPosition.y += 10;
-    }
+    // printf("%f %f %f %f\n", searchBoxInner.x, searchBoxInner.y, searchBoxInner.width, searchBoxInner.height);
+    int fontSize = 16 * GetScreenScale();
 
-    if (IsFontValid(SearchFont))
-    {
-        BeginShaderMode(GetSDFShader());
-        DrawTextEx(SearchFont, "TEST", (Vector2){300, 300}, 64, 5, WHITE);
-        EndShaderMode();
-    }
-    else
-    {
-        DrawTextEx(GetFontDefault(), "TEST", (Vector2){300, 300}, 64, 5, WHITE);
-    }
+    GuiSetFont(SearchFont);
+    GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
+
+    BeginShaderMode(GetSDFShader());
+    TextInputBox(searchBoxInner, "Enter song name...", SearchText, SEARCH_TEXT_SIZE);
+    EndShaderMode();
+
+    GuiSetFont(GetFontDefault());
+
+    DrawRectangleLinesEx(searchBoxOuter, 1, RED);
+    DrawRectangleLinesEx(searchBoxInner, 1, GREEN);
+    DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
 }
 
 void RunFromSearch()
@@ -577,73 +593,6 @@ void RunFromSearch()
 
     MinimizeWindow();
     AppState = SOUNDBOARD_STATUS;
-}
-
-Rectangle RectToScreen(Rectangle rect, int scrWidth, int scrHeight)
-{
-    rect.height *= scrHeight;
-    rect.y *= scrHeight;
-    rect.width *= scrWidth;
-    rect.x *= scrWidth;
-    return rect;
-}
-
-Rectangle RectPadding(Rectangle rect, float pTop, float pBottom, float pRight, float pLeft)
-{
-    // Move origin and adjust size for left padding
-    rect.x += pLeft;
-    rect.width -= pLeft;
-
-    // Move origin and adjust size for top padding
-    rect.y += pTop;
-    rect.height -= pTop;
-
-    // Adjust size for right and bottom padding
-    rect.width -= pRight;
-    rect.height -= pBottom;
-
-    // Ensure the rectangle doesn't have negative dimensions
-    if (rect.width < 0)
-        rect.width = 0;
-    if (rect.height < 0)
-        rect.height = 0;
-
-    return rect;
-}
-
-// Calculate fontsize to fit in rect
-int RectCalcFontSize(Rectangle target, Font font, const char *text, float spacing)
-{
-    Vector2 baseTextSize1 = MeasureTextEx(font, text, 1, spacing);
-    Vector2 baseTextSize2 = MeasureTextEx(font, text, 2, spacing);
-
-    // a_n = a_1 + (n - 1) * d
-    // a_1 + (n - 1) * d > x
-    // n > (x - a_1) / d + 1
-
-    int nX = 1;
-    int nY = 1;
-
-    {
-        float a_1 = baseTextSize1.x;
-        float d = baseTextSize2.x - baseTextSize1.x;
-        float x = target.width;
-
-        float v = (x - a_1) / d + 1;
-        nX = (int)ceilf(v) - 1;
-    }
-
-    {
-        float a_1 = baseTextSize1.y;
-        float d = baseTextSize2.y - baseTextSize1.y;
-        float x = target.height;
-
-        float v = (x - a_1) / d + 1;
-        nY = (int)ceilf(v) - 1;
-    }
-
-    int n = nX > nY ? nY : nX;
-    return n;
 }
 
 float GetAbsoluteScreenScaleX()
@@ -661,9 +610,37 @@ float GetScreenScale()
     return GetScreenWidth() > GetScreenHeight() ? GetAbsoluteScreenScaleY() : GetAbsoluteScreenScaleX();
 }
 
-inline bool IsRectClicked(Rectangle collider, Vector2 mouseP)
+void TextInputBox(Rectangle bounds, const char *placeholder, char *text, int maxTextSize)
 {
-    bool collision = CheckCollisionPointRec(mouseP, collider);
-    bool click = IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
-    return collision && click;
+    assert(placeholder);
+    assert(text);
+
+    int key = GetCharPressed();
+
+    // Check if more characters have been pressed on the same frame
+    while (key > 0)
+    {
+        printf("Key pressed %c\n", (char) key);
+
+        // NOTE: Only allow keys in range [32..125]
+        if ((key >= 32) && (key <= 125) && (SearchTextLetterCount < maxTextSize))
+        {
+            text[SearchTextLetterCount] = (char)key;
+            text[SearchTextLetterCount + 1] = '\0'; // Add null terminator at the end of the string
+            SearchTextLetterCount++;
+        }
+
+        key = GetCharPressed(); // Check next character in the queue
+    }
+
+    char *xuy = strnlen(text, maxTextSize) == 0 ? placeholder : text;
+
+    // printf("XUY %s\n", xuy);
+
+    Font f = GuiGetFont();
+    int fontSize = GuiGetStyle(DEFAULT, TEXT_SIZE);
+    Vector2 textSize = MeasureTextEx(f, xuy, fontSize, 1);
+    Vector2 textPosition = {bounds.x + bounds.width * 0.5f - textSize.x * 0.5f,
+                            bounds.y + bounds.height * 0.5f - textSize.y * 0.5f};
+    DrawTextEx(f, xuy, textPosition, fontSize, 1, WHITE);
 }

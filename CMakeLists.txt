@@ -19,6 +19,7 @@ set(PROJECT_SRC
 	src/main.c
 	src/keyboard_hook.c
 	src/font_sdf.c
+	src/rect_utils.c
 
 	src/external/raygui/raygui.c
 
