@@ -9,9 +9,9 @@
 #include <rect_utils.h>
 #include <resources/app_icon.h>
 #include <resources/hack_regular_font.h>
+#include <search_file.h>
 #include <string.h>
 #include <text_input_box.h>
-#include <search_file.h>
 
 typedef enum
 {
@@ -50,8 +50,12 @@ static Image AppIcon;
 static char SearchText[SEARCH_TEXT_SIZE + 1] = "\0";
 static int SearchTextLetterCount = 0;
 
+#define SEARCH_ITEMS_MAX 9
+
 // const char *soundExtensions = ".wav;.mp3";
 #define SUPPORTED_SOUND_EXTENSIONS ".wav"
+
+static bool DebugUILayout;
 
 int main(void)
 {
@@ -76,10 +80,7 @@ int main(void)
     SetExitKey(0);
     InstallKeyboardHook();
     AppState = MAIN_MENU;
-    // AppState = SOUNDBOARD_STATUS;
 
-    // SearchFont = LoadFont_HackRegularFont();
-    // SearchFont = LoadFontSDF("Hack-Regular.ttf", 32);
     SearchFont = LoadFontSDFFromMemory(HACK_REGULAR_FONT_DATA, HACK_REGULAR_FONT_DATA_SIZE, 32);
 
     while (!WindowShouldClose())
@@ -180,11 +181,14 @@ void RunMainMenu()
         AppState = SETTINGS;
     }
 
-    DrawRectangleLinesEx(menuArea, 1.0f, RED);
-    DrawRectangleLinesEx(vertButton1, 1.0f, YELLOW);
-    DrawRectangleLinesEx(vertButton2, 1.0f, ORANGE);
-    DrawRectangleLinesEx(vertButton1Text, 1.0f, ORANGE);
-    DrawRectangleLinesEx(vertButton2Text, 1.0f, ORANGE);
+    if (DebugUILayout)
+    {
+        DrawRectangleLinesEx(menuArea, 1.0f, RED);
+        DrawRectangleLinesEx(vertButton1, 1.0f, YELLOW);
+        DrawRectangleLinesEx(vertButton2, 1.0f, ORANGE);
+        DrawRectangleLinesEx(vertButton1Text, 1.0f, ORANGE);
+        DrawRectangleLinesEx(vertButton2Text, 1.0f, ORANGE);
+    }
 }
 
 void RunInvalidState()
@@ -272,11 +276,14 @@ void RunSoundboardSelection()
 
     GuiSetStyle(DEFAULT, TEXT_SPACING, 1);
 
-    DrawRectangleLinesEx(menuArea, 1.0f, RED);
-    DrawRectangleLinesEx(backButton, 1.0f, YELLOW);
-    DrawRectangleLinesEx(backButtonText, 1.0f, ORANGE);
-    DrawRectangleLinesEx(buttonsArea, 1.0f, YELLOW);
-    DrawRectangleLinesEx(loadSoundBoardButton, 1.0f, ORANGE);
+    if (DebugUILayout)
+    {
+        DrawRectangleLinesEx(menuArea, 1.0f, RED);
+        DrawRectangleLinesEx(backButton, 1.0f, YELLOW);
+        DrawRectangleLinesEx(backButtonText, 1.0f, ORANGE);
+        DrawRectangleLinesEx(buttonsArea, 1.0f, YELLOW);
+        DrawRectangleLinesEx(loadSoundBoardButton, 1.0f, ORANGE);
+    }
 }
 
 void RunSettings()
@@ -384,11 +391,14 @@ void RunSettings()
         tPos.y += tSize.y + tSize.y * 0.5f;
     }
 
-    DrawRectangleLinesEx(menuArea, 1.0f, RED);
-    DrawRectangleLinesEx(backButton, 1.0f, YELLOW);
-    DrawRectangleLinesEx(backButtonText, 1.0f, ORANGE);
-    DrawRectangleLinesEx(selectAudioDeviceButton, 1.0f, YELLOW);
-    DrawRectangleLinesEx(scrollArea, 1.0f, GREEN);
+    if (DebugUILayout)
+    {
+        DrawRectangleLinesEx(menuArea, 1.0f, RED);
+        DrawRectangleLinesEx(backButton, 1.0f, YELLOW);
+        DrawRectangleLinesEx(backButtonText, 1.0f, ORANGE);
+        DrawRectangleLinesEx(selectAudioDeviceButton, 1.0f, YELLOW);
+        DrawRectangleLinesEx(scrollArea, 1.0f, GREEN);
+    }
 }
 
 void RunSoundboardLoading()
@@ -420,7 +430,7 @@ void RunSoundboardLoading()
             UnloadDirectoryFiles(SoundboardFiles);
             SoundboardFiles = LoadDirectoryFilesEx(SoundboardDir, SUPPORTED_SOUND_EXTENSIONS, true);
             SoundboardDirLoadingState = LD_DONE;
-            SearchCandidates = SearchInFileListNoAlloc(&SoundboardFiles, "", 16);
+            SearchCandidates = SearchInFileListNoAlloc(&SoundboardFiles, "", SEARCH_ITEMS_MAX);
             AppState = SOUNDBOARD_STATUS;
         }
     }
@@ -466,7 +476,8 @@ void RunSoundboardStatus()
     int fontSize = 32 * GetScreenScale();
     int spacing = 4 * GetScreenScale();
 
-    const char *text = TextFormat("Soundboard is ready (%i),\nuse alt + f \nrestore space + f (only focused)", SoundboardFiles.count);
+    const char *text =
+        TextFormat("Soundboard is ready (%i),\nuse alt + f \nrestore space + f (only focused)", SoundboardFiles.count);
     Vector2 textSize = MeasureTextEx(GetFontDefault(), text, fontSize, spacing);
     Vector2 textPos = {w * 0.5f - textSize.x * 0.5f, h * 0.5f - textSize.y};
     // RLAPI void DrawTextEx(Font font, const char *text, Vector2 position, float fontSize, float spacing, Color tint);
@@ -562,6 +573,29 @@ void RunSearch()
     Rectangle searchBoxOuter = {0, 0, 1.0f, 0.2f};
     Rectangle soundBoxOuter = {0, searchBoxOuter.height, 1.0f, 1.0f - searchBoxOuter.height};
 
+    Rectangle soundBoxItems[SEARCH_ITEMS_MAX] = {0};
+    float itemHeight = soundBoxOuter.height / SEARCH_ITEMS_MAX;
+    for (int i = 0; i < SEARCH_ITEMS_MAX; i++)
+    {
+        soundBoxItems[i].x = soundBoxOuter.x;
+        soundBoxItems[i].y = soundBoxOuter.y + itemHeight * i;
+        soundBoxItems[i].width = soundBoxOuter.width;
+        soundBoxItems[i].height = itemHeight;
+
+        Rectangle te = RectPadding(soundBoxItems[i], 0.01f, 0.01f, 0.1f, 0.1f);
+
+        soundBoxItems[i] = RectToScreen(soundBoxItems[i], w, h);
+        te = RectToScreen(te, w, h);
+
+        if (DebugUILayout)
+        {
+            DrawRectangleLinesEx(soundBoxItems[i], 1, YELLOW);
+            DrawRectangleLinesEx(te, 1, GREEN);
+        }
+
+        soundBoxItems[i] = te;
+    }
+
     Rectangle searchBoxInner = RectPaddingAll(searchBoxOuter, 0.065f);
 
     searchBoxOuter = RectToScreen(searchBoxOuter, w, h);
@@ -575,32 +609,111 @@ void RunSearch()
     GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
 
     BeginShaderMode(GetSDFShader());
-    char *searchOut = TextInputBox(searchBoxInner, "Enter song name...", SearchText, SEARCH_TEXT_SIZE, &SearchTextLetterCount);
-    EndShaderMode();
-    GuiSetFont(GetFontDefault());
-    
-    // if (searchOut)
-    // {
-    //     printf("Search out %s\n", searchOut);
-    // }
 
-    if (searchOut && strnlen(SearchText, SEARCH_TEXT_SIZE) > 0)
+    char *searchOut = NULL;
+    int keyNumberPressed = 0;
+
+    if (!IsKeyDown(KEY_LEFT_ALT))
     {
-        SearchCandidates = SearchInFileListNoAlloc(&SoundboardFiles, searchOut, 16);
+        searchOut = TextInputBox(searchBoxInner, "Enter sound name... (alt + number to play)", SearchText,
+                                 SEARCH_TEXT_SIZE, &SearchTextLetterCount);
+    }
+    else
+    {
+        keyNumberPressed = 0;
+        if (IsKeyPressed(KEY_ONE) || IsKeyPressed(KEY_KP_1))
+        {
+            keyNumberPressed = 1;
+        }
+        else if (IsKeyPressed(KEY_TWO) || IsKeyPressed(KEY_KP_2))
+        {
+            keyNumberPressed = 2;
+        }
+        else if (IsKeyPressed(KEY_THREE) || IsKeyPressed(KEY_KP_3))
+        {
+            keyNumberPressed = 3;
+        }
+        else if (IsKeyPressed(KEY_FOUR) || IsKeyPressed(KEY_KP_4))
+        {
+            keyNumberPressed = 4;
+        }
+        else if (IsKeyPressed(KEY_FIVE) || IsKeyPressed(KEY_KP_5))
+        {
+            keyNumberPressed = 5;
+        }
+        else if (IsKeyPressed(KEY_SIX) || IsKeyPressed(KEY_KP_6))
+        {
+            keyNumberPressed = 6;
+        }
+        else if (IsKeyPressed(KEY_SEVEN) || IsKeyPressed(KEY_KP_7))
+        {
+            keyNumberPressed = 7;
+        }
+        else if (IsKeyPressed(KEY_EIGHT) || IsKeyPressed(KEY_KP_8))
+        {
+            keyNumberPressed = 8;
+        }
+        else if (IsKeyPressed(KEY_NINE) || IsKeyPressed(KEY_KP_9))
+        {
+            keyNumberPressed = 9;
+        }
+
+        // if (keyNumberPressed != 0)
+        // {
+        //     printf("Xuy %i\n", keyNumberPressed);
+        // }
+    }
+
+    if (searchOut)
+    {
+        SearchCandidates = SearchInFileListNoAlloc(&SoundboardFiles, searchOut, SEARCH_ITEMS_MAX);
         printf("Search can %i\n", SearchCandidates.count);
     }
 
-    Rectangle itemRect = {0, 0, 30, 30};
+    fontSize = 16 * GetScreenScale();
+
     for (int i = 0; i < SearchCandidates.count; i++)
     {
-        DrawRectangleRec(itemRect, RED);
-        itemRect.y += 33;
+        Rectangle r = soundBoxItems[i];
+        char *t = TextFormat("%i: %s", i + 1, GetFileName(SearchCandidates.filteredPaths[i]));
+
+        Vector2 textSize = MeasureTextEx(SearchFont, t, fontSize, 1);
+        DrawTextEx(SearchFont, t, (Vector2){r.x, r.y + textSize.y * 0.5f}, fontSize, 1, WHITE);
+    }
+    EndShaderMode();
+    GuiSetFont(GetFontDefault());
+
+    if (DebugUILayout)
+    {
+        DrawRectangleLinesEx(searchBoxOuter, 1, RED);
+        DrawRectangleLinesEx(searchBoxInner, 1, GREEN);
+        DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
     }
 
-    // printf("Count %i\n", SearchSoundboardFiles.count);
-    DrawRectangleLinesEx(searchBoxOuter, 1, RED);
-    DrawRectangleLinesEx(searchBoxInner, 1, GREEN);
-    DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
+    static Sound soundToPlay;
+
+    if (keyNumberPressed != 0)
+    {
+        int itemId = keyNumberPressed - 1;
+        
+        if (itemId < SearchCandidates.count)
+        {
+            const char *soundPath = SearchCandidates.filteredPaths[itemId];
+            assert(soundPath);
+
+            if (FileExists(soundPath))
+            {
+                if (IsSoundPlaying(soundToPlay))
+                {
+                    StopSound(soundToPlay);
+                }
+
+                UnloadSound(soundToPlay);
+                soundToPlay = LoadSound(soundPath);
+                PlaySound(soundToPlay);
+            }
+        }
+    }
 }
 
 void RunFromSearch()
@@ -632,7 +745,7 @@ float GetScreenScale()
     return GetScreenWidth() > GetScreenHeight() ? GetAbsoluteScreenScaleY() : GetAbsoluteScreenScaleX();
 }
 
-// returns *text if it was changed, null otherwise 
+// returns *text if it was changed, null otherwise
 char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int maxTextSize, int *letterCountPtr)
 {
     assert(placeholder);
@@ -689,7 +802,7 @@ char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int ma
     else if (IsKeyDown(KEY_BACKSPACE))
     {
         double holdTime = GetTime();
-        
+
         if (holdTime - pressedTime > 0.5)
         {
             processBackSpace = true;
@@ -709,19 +822,16 @@ char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int ma
             letterCount--;
         }
 
-        if (letterCount < 0) 
+        if (letterCount < 0)
         {
             letterCount = 0;
         }
-        else
-        {
-            wasChanged = true;
-        }
 
+        wasChanged = true;
         text[letterCount] = '\0';
     }
 
-    int textLen = strnlen(text, maxTextSize); 
+    int textLen = strnlen(text, maxTextSize);
     char *xuy = textLen == 0 ? placeholder : text;
 
     if (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyPressed(KEY_C) && textLen > 0)
@@ -749,5 +859,3 @@ char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int ma
         return NULL;
     }
 }
-
-

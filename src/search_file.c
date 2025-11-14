@@ -1,12 +1,6 @@
 #include <raylib.h>
 #include <string.h>
-
-typedef struct {
-    FilePathList *originalList;  // Reference to original list
-    char **filteredPaths;        // Pointers to filtered paths in original list
-    int count;                   // Number of filtered items
-    int capacity;                // Maximum capacity for filtered results
-} FilteredFilePathList;
+#include "search_file.h"
 
 FilteredFilePathList SearchInFileListNoAlloc(FilePathList *list, const char *search, int limit) {
     FilteredFilePathList result = {0};
@@ -24,11 +18,11 @@ FilteredFilePathList SearchInFileListNoAlloc(FilePathList *list, const char *sea
     result.capacity = MAX_FILTERED_RESULTS;
     
     int matchCount = 0;
-    const char *lowerSearch = TextToLower(search);
-    
+    const char *lowerSearch = strlwr(search);
+
     // First pass: exact matches at beginning (higher priority)
     for (int i = 0; i < list->count && matchCount < result.capacity && matchCount < limit; i++) {
-        const char *filename = TextToLower(GetFileName(list->paths[i]));
+        const char *filename = strlwr(GetFileName(list->paths[i]));
         const char *found = strstr(filename, lowerSearch);
         
         if (found != NULL && found == filename) { // Match at beginning
@@ -38,7 +32,7 @@ FilteredFilePathList SearchInFileListNoAlloc(FilePathList *list, const char *sea
     
     // Second pass: other matches
     for (int i = 0; i < list->count && matchCount < result.capacity && matchCount < limit; i++) {
-        const char *filename = TextToLower(GetFileName(list->paths[i]));
+        const char *filename = strlwr(GetFileName(list->paths[i]));
         const char *found = strstr(filename, lowerSearch);
         
         if (found != NULL && found != filename) { // Match not at beginning

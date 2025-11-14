@@ -1742,8 +1742,10 @@ const char *TextToUpper(const char *text)
 // Get lower case version of provided string
 // WARNING: Limited functionality, only basic characters set
 const char *TextToLower(const char *text)
-{
-    static char buffer[MAX_TEXT_BUFFER_LENGTH] = { 0 };
+{   
+    TRACELOG(LOG_WARNING, "TextToLower is buggy, watch out!!!");
+
+    static char buffer[MAX_TEXT_BUFFER_LENGTH] = {0};
     memset(buffer, 0, MAX_TEXT_BUFFER_LENGTH);
 
     if (text != NULL)
