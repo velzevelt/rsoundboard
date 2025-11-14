@@ -571,7 +571,13 @@ void RunSearch()
     GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
 
     BeginShaderMode(GetSDFShader());
-    TextInputBox(searchBoxInner, "Enter song name...", SearchText, SEARCH_TEXT_SIZE);
+    
+    char *searchOut = TextInputBox(searchBoxInner, "Enter song name...", SearchText, SEARCH_TEXT_SIZE, &SearchTextLetterCount);
+    if (searchOut)
+    {
+        printf("Search out %s\n", searchOut);
+    }
+    
     EndShaderMode();
 
     GuiSetFont(GetFontDefault());
@@ -610,28 +616,78 @@ float GetScreenScale()
     return GetScreenWidth() > GetScreenHeight() ? GetAbsoluteScreenScaleY() : GetAbsoluteScreenScaleX();
 }
 
-void TextInputBox(Rectangle bounds, const char *placeholder, char *text, int maxTextSize)
+// returns *text if it was changed, null otherwise 
+char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int maxTextSize, int *letterCountPtr)
 {
     assert(placeholder);
     assert(text);
+    assert(letterCountPtr);
 
+    int letterCount = *letterCountPtr;
     int key = GetCharPressed();
+
+    bool wasChanged = false;
 
     // Check if more characters have been pressed on the same frame
     while (key > 0)
     {
-        printf("Key pressed %c\n", (char) key);
+        // printf("Key pressed %c\n", (char) key);
 
         // NOTE: Only allow keys in range [32..125]
-        if ((key >= 32) && (key <= 125) && (SearchTextLetterCount < maxTextSize))
+        if ((key >= 32) && (key <= 125) && (letterCount < maxTextSize))
         {
-            text[SearchTextLetterCount] = (char)key;
-            text[SearchTextLetterCount + 1] = '\0'; // Add null terminator at the end of the string
-            SearchTextLetterCount++;
+            text[letterCount] = (char)key;
+            text[letterCount + 1] = '\0'; // Add null terminator at the end of the string
+            letterCount++;
+            wasChanged = true;
         }
 
         key = GetCharPressed(); // Check next character in the queue
     }
+
+    bool processBackSpace = false;
+    static double pressedTime;
+
+    if (IsKeyPressed(KEY_BACKSPACE))
+    {
+        pressedTime = GetTime();
+        processBackSpace = true;
+    }
+    else if (IsKeyDown(KEY_BACKSPACE))
+    {
+        double holdTime = GetTime();
+        
+        if (holdTime - pressedTime > 0.5)
+        {
+            processBackSpace = true;
+            pressedTime = holdTime - 0.48;
+            // printf("XUY\n");
+        }
+    }
+
+    if (processBackSpace)
+    {
+        if (IsKeyDown(KEY_LEFT_CONTROL))
+        {
+            letterCount = 0;
+        }
+        else
+        {
+            letterCount--;
+        }
+
+        if (letterCount < 0) 
+        {
+            letterCount = 0;
+        }
+        else
+        {
+            wasChanged = true;
+        }
+
+        text[letterCount] = '\0';
+    }
+
 
     char *xuy = strnlen(text, maxTextSize) == 0 ? placeholder : text;
 
@@ -643,4 +699,14 @@ void TextInputBox(Rectangle bounds, const char *placeholder, char *text, int max
     Vector2 textPosition = {bounds.x + bounds.width * 0.5f - textSize.x * 0.5f,
                             bounds.y + bounds.height * 0.5f - textSize.y * 0.5f};
     DrawTextEx(f, xuy, textPosition, fontSize, 1, WHITE);
+
+    if (wasChanged)
+    {
+        *letterCountPtr = letterCount;
+        return text;
+    }
+    else
+    {
+        return NULL;
+    }
 }
