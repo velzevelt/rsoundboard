@@ -52,9 +52,9 @@ if(WIN32)
 		target_link_libraries(${PROJECT_NAME} raylib)
 
 		# Do not create windows console at run
-		# set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE
-		# 	LINK_FLAGS "/ENTRY:mainCRTStartup"
-		# )
+		set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE TRUE
+			LINK_FLAGS "/ENTRY:mainCRTStartup"
+		)
 
 		add_subdirectory(src/tools)
 
