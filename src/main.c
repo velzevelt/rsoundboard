@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <font_sdf.h>
 #include <keyboard_hook.h>
+#include <math.h>
 #include <miniaudio.h>
 #include <nfd.h>
 #include <raygui.h>
@@ -41,6 +42,7 @@ static const char *SoundboardDir = NULL;
 static LOADING_STATE SoundboardDirLoadingState;
 static FilePathList SoundboardFiles;
 static FilteredFilePathList SearchCandidates;
+static const char *SoundboardLongestFileName;
 
 static Rectangle BeforeSearchWindow = {0};
 static Font SearchFont;
@@ -51,11 +53,13 @@ static char SearchText[SEARCH_TEXT_SIZE + 1] = "\0";
 static int SearchTextLetterCount = 0;
 
 #define SEARCH_ITEMS_MAX 9
+#define MAX_SOUND_COLUMNS 6
+#define MAX_SOUND_ROWS 16
 
 // const char *soundExtensions = ".wav;.mp3";
 #define SUPPORTED_SOUND_EXTENSIONS ".wav"
 
-static bool DebugUILayout;
+static bool DebugUILayout = false;
 
 int main(void)
 {
@@ -430,7 +434,10 @@ void RunSoundboardLoading()
             UnloadDirectoryFiles(SoundboardFiles);
             SoundboardFiles = LoadDirectoryFilesEx(SoundboardDir, SUPPORTED_SOUND_EXTENSIONS, true);
             SoundboardDirLoadingState = LD_DONE;
-            SearchCandidates = SearchInFileListNoAlloc(&SoundboardFiles, "", SEARCH_ITEMS_MAX);
+
+            SoundboardLongestFileName = FindLongestFileName(&SoundboardFiles);
+            // printf("LONGEST FILE %s\n", SoundboardLongestFileName);
+
             AppState = SOUNDBOARD_STATUS;
         }
     }
@@ -505,8 +512,10 @@ void RunSoundboardStatus()
         AppState = SOUNDBOARD_TO_SEARCH;
     }
 
-    bool wantToRestoreBeforeWindow =
-        IsWindowFocused() && IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F);
+    // bool wantToRestoreBeforeWindow =
+    // IsWindowFocused() && IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F);
+
+    bool wantToRestoreBeforeWindow = IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F);
 
     // if (IsKeyboardHookKeyDown(HK_ALT) && IsKeyboardHookKeyPressed(HK_F))
     // {
@@ -568,55 +577,37 @@ void RunSearch()
     if (IsKeyboardHookKeyPressed(HK_ESCAPE))
     {
         AppState = SOUNDBOARD_FROM_SEARCH;
+        return;
     }
 
     Rectangle searchBoxOuter = {0, 0, 1.0f, 0.2f};
-    Rectangle soundBoxOuter = {0, searchBoxOuter.height, 1.0f, 1.0f - searchBoxOuter.height};
+    Rectangle searchBoxInner = RectPadding(searchBoxOuter, 0, 0.065f, 0.065f, 0.065f);
 
-    Rectangle soundBoxItems[SEARCH_ITEMS_MAX] = {0};
-    float itemHeight = soundBoxOuter.height / SEARCH_ITEMS_MAX;
-    for (int i = 0; i < SEARCH_ITEMS_MAX; i++)
-    {
-        soundBoxItems[i].x = soundBoxOuter.x;
-        soundBoxItems[i].y = soundBoxOuter.y + itemHeight * i;
-        soundBoxItems[i].width = soundBoxOuter.width;
-        soundBoxItems[i].height = itemHeight;
-
-        Rectangle te = RectPadding(soundBoxItems[i], 0.01f, 0.01f, 0.1f, 0.1f);
-
-        soundBoxItems[i] = RectToScreen(soundBoxItems[i], w, h);
-        te = RectToScreen(te, w, h);
-
-        if (DebugUILayout)
-        {
-            DrawRectangleLinesEx(soundBoxItems[i], 1, YELLOW);
-            DrawRectangleLinesEx(te, 1, GREEN);
-        }
-
-        soundBoxItems[i] = te;
-    }
-
-    Rectangle searchBoxInner = RectPaddingAll(searchBoxOuter, 0.065f);
-
-    searchBoxOuter = RectToScreen(searchBoxOuter, w, h);
-    soundBoxOuter = RectToScreen(soundBoxOuter, w, h);
-    searchBoxInner = RectToScreen(searchBoxInner, w, h);
-
-    // printf("%f %f %f %f\n", searchBoxInner.x, searchBoxInner.y, searchBoxInner.width, searchBoxInner.height);
-    int fontSize = 16 * GetScreenScale();
-
-    GuiSetFont(SearchFont);
-    GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
-
-    BeginShaderMode(GetSDFShader());
+    size_t rows = MAX_SOUND_ROWS;
+    size_t columns = MAX_SOUND_COLUMNS;
+    size_t count = SoundboardFiles.count;
+    size_t pages = count / (rows * columns);
+    static int currentPage;
+    int soundFileId = -1;
+    static int lastSoundFileId;
+    static Sound soundToPlay;
+    Rectangle soundBoxOuter = {0, searchBoxInner.y + searchBoxInner.height, 1.0f, 1.0f - searchBoxInner.height};
+    Vector2 itemSize = {soundBoxOuter.width / columns, soundBoxOuter.height / rows};
+    Rectangle itemScreen = RectToScreen((Rectangle){0, 0, itemSize.x, itemSize.y}, w, h);
+    bool hasSearchText = false;
 
     char *searchOut = NULL;
     int keyNumberPressed = 0;
 
+    BeginShaderMode(GetSDFShader());
+    GuiSetFont(SearchFont);
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 16 * GetScreenScale());
+
     if (!IsKeyDown(KEY_LEFT_ALT))
     {
-        searchOut = TextInputBox(searchBoxInner, "Enter sound name... (alt + number to play)", SearchText,
-                                 SEARCH_TEXT_SIZE, &SearchTextLetterCount);
+        const char *text = TextFormat("Enter sound name... (alt + number to play) (%i/%i)", currentPage + 1, pages + 1);
+        searchOut = TextInputBox(RectToScreen(searchBoxInner, w, h), text, SearchText, SEARCH_TEXT_SIZE,
+                                 &SearchTextLetterCount);
     }
     else
     {
@@ -658,10 +649,7 @@ void RunSearch()
             keyNumberPressed = 9;
         }
 
-        // if (keyNumberPressed != 0)
-        // {
-        //     printf("Xuy %i\n", keyNumberPressed);
-        // }
+        soundFileId = keyNumberPressed != 0 ? keyNumberPressed - 1 : soundFileId;
     }
 
     if (searchOut)
@@ -670,35 +658,107 @@ void RunSearch()
         printf("Search can %i\n", SearchCandidates.count);
     }
 
-    fontSize = 16 * GetScreenScale();
+    hasSearchText = !(SearchText == NULL || strlen(SearchText) == 0);
 
-    for (int i = 0; i < SearchCandidates.count; i++)
-    {
-        Rectangle r = soundBoxItems[i];
-        char *t = TextFormat("%i: %s", i + 1, GetFileName(SearchCandidates.filteredPaths[i]));
-
-        Vector2 textSize = MeasureTextEx(SearchFont, t, fontSize, 1);
-        DrawTextEx(SearchFont, t, (Vector2){r.x, r.y + textSize.y * 0.5f}, fontSize, 1, WHITE);
-    }
     EndShaderMode();
     GuiSetFont(GetFontDefault());
 
-    if (DebugUILayout)
+    if (IsKeyPressed(KEY_UP))
     {
-        DrawRectangleLinesEx(searchBoxOuter, 1, RED);
-        DrawRectangleLinesEx(searchBoxInner, 1, GREEN);
-        DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
+        currentPage--;
     }
 
-    static Sound soundToPlay;
-
-    if (keyNumberPressed != 0)
+    if (IsKeyPressed(KEY_DOWN))
     {
-        int itemId = keyNumberPressed - 1;
-        
-        if (itemId < SearchCandidates.count)
+        currentPage++;
+    }
+
+    currentPage = currentPage % (pages + 1);
+
+    if (hasSearchText)
+    {
+        currentPage = 0;
+    }
+
+    int fontSize = RectCalcFontSize(itemScreen, SearchFont, TextFormat("%i: %s", count, SoundboardLongestFileName), 1);
+
+    for (size_t c = 0; c < columns; c++)
+    {
+        for (size_t r = 0; r < rows; r++)
         {
-            const char *soundPath = SearchCandidates.filteredPaths[itemId];
+            Rectangle soundboardSoundItem = {0, 0, itemSize.x, itemSize.y};
+            soundboardSoundItem.x = soundBoxOuter.x + soundboardSoundItem.width * c;
+            soundboardSoundItem.y = soundBoxOuter.y + soundboardSoundItem.height * r;
+
+            soundboardSoundItem = RectToScreen(soundboardSoundItem, w, h);
+
+            int fileId = (currentPage * rows * columns) + (c * rows + r);
+
+            bool collision = CheckCollisionPointRec(GetMousePosition(), soundboardSoundItem);
+            Color textColor = WHITE;
+
+            if (collision)
+            {
+                textColor = GREEN;
+
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                    soundFileId = fileId;
+                }
+            }
+
+            if (fileId == lastSoundFileId && IsSoundPlaying(soundToPlay))
+            {
+                textColor = YELLOW;
+            }
+
+            if (!hasSearchText)
+            {
+                if (fileId >= 0 && fileId < SoundboardFiles.count)
+                {
+                    BeginShaderMode(GetSDFShader());
+                    const char *t = TextFormat("%i: %s", fileId + 1, GetFileName(SoundboardFiles.paths[fileId]));
+                    Vector2 textSize = MeasureTextEx(SearchFont, t, fontSize, 1);
+
+                    DrawTextEx(SearchFont, t,
+                               (Vector2){soundboardSoundItem.x,
+                                         soundboardSoundItem.y + soundboardSoundItem.height * 0.5f - textSize.y * 0.5f},
+                               fontSize, 1, textColor);
+                    EndShaderMode();
+                }
+            }
+            else
+            {
+                if (fileId >= 0 && fileId < SearchCandidates.count)
+                {
+                    BeginShaderMode(GetSDFShader());
+                    const char *t = TextFormat("%i: %s", fileId + 1, GetFileName(SearchCandidates.filteredPaths[fileId]));
+                    Vector2 textSize = MeasureTextEx(SearchFont, t, fontSize, 1);
+
+                    DrawTextEx(SearchFont, t,
+                            (Vector2){soundboardSoundItem.x,
+                                        soundboardSoundItem.y + soundboardSoundItem.height * 0.5f - textSize.y * 0.5f},
+                            fontSize, 1, textColor);
+                    EndShaderMode();
+                }
+            }
+
+            if (DebugUILayout)
+            {
+                DrawRectangleLinesEx(soundboardSoundItem, 1, WHITE);
+            }
+        }
+    }
+
+    searchBoxOuter = RectToScreen(searchBoxOuter, w, h);
+    soundBoxOuter = RectToScreen(soundBoxOuter, w, h);
+    searchBoxInner = RectToScreen(searchBoxInner, w, h);
+
+    if (!hasSearchText)
+    {
+        if (soundFileId >= 0 && soundFileId < SoundboardFiles.count)
+        {
+            const char *soundPath = SoundboardFiles.paths[soundFileId];
             assert(soundPath);
 
             if (FileExists(soundPath))
@@ -713,6 +773,41 @@ void RunSearch()
                 PlaySound(soundToPlay);
             }
         }
+    }
+    else
+    {
+        if (soundFileId >= 0 && soundFileId < SearchCandidates.count)
+        {
+            const char *soundPath = SearchCandidates.filteredPaths[soundFileId];
+            assert(soundPath);
+
+            if (FileExists(soundPath))
+            {
+                if (IsSoundPlaying(soundToPlay))
+                {
+                    StopSound(soundToPlay);
+                }
+
+                UnloadSound(soundToPlay);
+                soundToPlay = LoadSound(soundPath);
+                PlaySound(soundToPlay);
+            }
+        }
+    }
+
+
+    if (IsSoundPlaying(soundToPlay) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+    {
+        StopSound(soundToPlay);
+    }
+
+    lastSoundFileId = soundFileId != -1 ? soundFileId : lastSoundFileId;
+
+    if (DebugUILayout)
+    {
+        DrawRectangleLinesEx(searchBoxOuter, 1, RED);
+        DrawRectangleLinesEx(searchBoxInner, 1, GREEN);
+        DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
     }
 }
 
@@ -858,4 +953,69 @@ char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int ma
     {
         return NULL;
     }
+}
+
+void CalculateSquareTableLayout(size_t items, size_t *columns, size_t *rows)
+{
+    if (items == 0)
+    {
+        *columns = 0;
+        *rows = 0;
+        return;
+    }
+
+    // Calculate approximate square root
+    size_t base = (size_t)sqrt((double)items);
+
+    // Start with base as columns, calculate rows needed
+    *columns = base;
+    *rows = (items + *columns - 1) / *columns; // Ceiling division
+
+    // If the layout is reasonable (rows not much larger than columns), use it
+    if (*rows <= *columns + 1)
+    {
+        return;
+    }
+
+    // Otherwise, try columns = base + 1
+    *columns = base + 1;
+    *rows = (items + *columns - 1) / *columns;
+
+    // This should give us a layout where we have the "extra column"
+    // and rows <= columns (or very close to it)
+}
+
+const char *FindLongestFileName(FilePathList *list)
+{
+    assert(list);
+
+    char **items = list->paths;
+    size_t count = list->count;
+
+    if (items == NULL || count == 0)
+    {
+        return NULL;
+    }
+
+    const char *longest = GetFileName(items[0]);
+    size_t max_length = strlen(GetFileName(items[0]));
+
+    // Iterate through the array starting from the second element
+    for (size_t i = 1; i < count; i++)
+    {
+        // Skip NULL pointers
+        if (GetFileName(items[i]) == NULL)
+        {
+            continue;
+        }
+
+        size_t current_length = strlen(GetFileName(items[i]));
+        if (current_length > max_length)
+        {
+            max_length = current_length;
+            longest = GetFileName(items[i]);
+        }
+    }
+
+    return longest;
 }
