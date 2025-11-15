@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <font_sdf.h>
 #include <keyboard_hook.h>
+#include <math.h>
 #include <miniaudio.h>
 #include <nfd.h>
 #include <raygui.h>
@@ -12,8 +13,6 @@
 #include <search_file.h>
 #include <string.h>
 #include <text_input_box.h>
-#include <math.h>
-
 
 typedef enum
 {
@@ -54,6 +53,8 @@ static char SearchText[SEARCH_TEXT_SIZE + 1] = "\0";
 static int SearchTextLetterCount = 0;
 
 #define SEARCH_ITEMS_MAX 9
+#define MAX_SOUND_COLUMNS 6
+#define MAX_SOUND_ROWS 16
 
 // const char *soundExtensions = ".wav;.mp3";
 #define SUPPORTED_SOUND_EXTENSIONS ".wav"
@@ -512,8 +513,10 @@ void RunSoundboardStatus()
         AppState = SOUNDBOARD_TO_SEARCH;
     }
 
-    bool wantToRestoreBeforeWindow =
-        IsWindowFocused() && IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F);
+    // bool wantToRestoreBeforeWindow =
+    // IsWindowFocused() && IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F);
+
+    bool wantToRestoreBeforeWindow = IsKeyboardHookKeyDown(HK_SPACE) && IsKeyboardHookKeyPressed(HK_F);
 
     // if (IsKeyboardHookKeyDown(HK_ALT) && IsKeyboardHookKeyPressed(HK_F))
     // {
@@ -578,39 +581,98 @@ void RunSearch()
     }
 
     Rectangle searchBoxOuter = {0, 0, 1.0f, 0.2f};
-    Rectangle soundBoxOuter = {0, searchBoxOuter.height, 1.0f, 1.0f - searchBoxOuter.height};
+    Rectangle searchBoxInner = RectPadding(searchBoxOuter, 0, 0.065f, 0.065f, 0.065f);
+    Rectangle soundBoxOuter = {0, searchBoxInner.y + searchBoxInner.height, 1.0f, 1.0f - searchBoxInner.height};
 
-    Rectangle soundBoxItems[SEARCH_ITEMS_MAX] = {0};
-    float itemHeight = soundBoxOuter.height / SEARCH_ITEMS_MAX;
-    for (int i = 0; i < SEARCH_ITEMS_MAX; i++)
+    size_t rows = MAX_SOUND_ROWS;
+    size_t columns = MAX_SOUND_COLUMNS;
+    size_t count = SoundboardFiles.count;
+    size_t pages = count / (rows * columns);
+    static int currentPage;
+    int soundFileId = -1;
+    static int clickedSoundId;
+    static Sound soundToPlay;
+
+    // printf("r %u c %u c %u p %u cp %i\n", rows, columns, count, pages, currentPage);
+
+    Vector2 itemSize = {soundBoxOuter.width / columns, soundBoxOuter.height / rows};
+    Rectangle itemScreen = RectToScreen((Rectangle){0, 0, itemSize.x, itemSize.y}, w, h);
+
+    int fontSize = RectCalcFontSize(itemScreen, SearchFont, TextFormat("%i: %s", count, SoundboardLongestFileName), 1);
+
+    // printf("f %i %f %f \n", fontSize, itemSize.x, itemSize.y);
+
+    // int fontSize = 1;
+
+    if (IsKeyPressed(KEY_UP))
     {
-        soundBoxItems[i].x = soundBoxOuter.x;
-        soundBoxItems[i].y = soundBoxOuter.y + itemHeight * i;
-        soundBoxItems[i].width = soundBoxOuter.width;
-        soundBoxItems[i].height = itemHeight;
-
-        Rectangle te = RectPadding(soundBoxItems[i], 0.01f, 0.01f, 0.1f, 0.1f);
-
-        soundBoxItems[i] = RectToScreen(soundBoxItems[i], w, h);
-        te = RectToScreen(te, w, h);
-
-        if (DebugUILayout)
-        {
-            DrawRectangleLinesEx(soundBoxItems[i], 1, YELLOW);
-            DrawRectangleLinesEx(te, 1, GREEN);
-        }
-
-        soundBoxItems[i] = te;
+        currentPage--;
     }
 
-    Rectangle searchBoxInner = RectPaddingAll(searchBoxOuter, 0.065f);
+    if (IsKeyPressed(KEY_DOWN))
+    {
+        currentPage++;
+    }
+
+    currentPage = currentPage % (pages + 1);
+
+    for (size_t c = 0; c < columns; c++)
+    {
+        for (size_t r = 0; r < rows; r++)
+        {
+            Rectangle soundboardSoundItem = {0, 0, itemSize.x, itemSize.y};
+            soundboardSoundItem.x = soundBoxOuter.x + soundboardSoundItem.width * c;
+            soundboardSoundItem.y = soundBoxOuter.y + soundboardSoundItem.height * r;
+
+            soundboardSoundItem = RectToScreen(soundboardSoundItem, w, h);
+
+            int fileId = (currentPage * rows * columns) + (c * rows + r);
+
+            bool collision = CheckCollisionPointRec(GetMousePosition(), soundboardSoundItem);
+            Color textColor = WHITE;
+
+            if (collision)
+            {
+                textColor = GREEN;
+
+                if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+                {
+                    clickedSoundId = fileId;
+                    soundFileId = fileId;
+                }
+            }
+
+            if (clickedSoundId == fileId && IsSoundPlaying(soundToPlay))
+            {
+                textColor = YELLOW;
+            }
+
+            if (fileId >= 0 && fileId < SoundboardFiles.count)
+            {
+                BeginShaderMode(GetSDFShader());
+                const char *t = TextFormat("%i: %s", fileId + 1, GetFileName(SoundboardFiles.paths[fileId]));
+                Vector2 textSize = MeasureTextEx(SearchFont, t, fontSize, 1);
+
+                DrawTextEx(SearchFont, t,
+                           (Vector2){soundboardSoundItem.x,
+                                     soundboardSoundItem.y + soundboardSoundItem.height * 0.5f - textSize.y * 0.5f},
+                           fontSize, 1, textColor);
+                EndShaderMode();
+            }
+
+            if (DebugUILayout)
+            {
+                DrawRectangleLinesEx(soundboardSoundItem, 1, WHITE);
+            }
+        }
+    }
 
     searchBoxOuter = RectToScreen(searchBoxOuter, w, h);
     soundBoxOuter = RectToScreen(soundBoxOuter, w, h);
     searchBoxInner = RectToScreen(searchBoxInner, w, h);
 
     // printf("%f %f %f %f\n", searchBoxInner.x, searchBoxInner.y, searchBoxInner.width, searchBoxInner.height);
-    int fontSize = 16 * GetScreenScale();
+    fontSize = 16 * GetScreenScale();
 
     GuiSetFont(SearchFont);
     GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
@@ -622,8 +684,8 @@ void RunSearch()
 
     if (!IsKeyDown(KEY_LEFT_ALT))
     {
-        searchOut = TextInputBox(searchBoxInner, "Enter sound name... (alt + number to play)", SearchText,
-                                 SEARCH_TEXT_SIZE, &SearchTextLetterCount);
+        const char *text = TextFormat("Enter sound name... (alt + number to play) (%i/%i)", currentPage + 1, pages + 1);
+        searchOut = TextInputBox(searchBoxInner, text, SearchText, SEARCH_TEXT_SIZE, &SearchTextLetterCount);
     }
     else
     {
@@ -677,34 +739,45 @@ void RunSearch()
         printf("Search can %i\n", SearchCandidates.count);
     }
 
+    // Vector2 textSize = {0};
+    // if (SearchCandidates.count > 0)
+    // {
+    //     fontSize = RectCalcFontSize(soundBoxItems[0], SearchFont, SoundboardLongestFileName, 1);
+    //     textSize = MeasureTextEx(SearchFont, SoundboardLongestFileName, fontSize, 1);
+    // }
 
-    Vector2 textSize = {0};
-    if (SearchCandidates.count > 0)
-    {
-        fontSize = RectCalcFontSize(soundBoxItems[0], SearchFont, SoundboardLongestFileName, 1);
-        textSize = MeasureTextEx(SearchFont, SoundboardLongestFileName, fontSize, 1);
-    }
+    // for (int i = 0; i < SearchCandidates.count; i++)
+    // {
+    //     Rectangle r = soundBoxItems[i];
+    //     char *t = TextFormat("%i: %s", i + 1, GetFileName(SearchCandidates.filteredPaths[i]));
+    //     DrawTextEx(SearchFont, t, (Vector2){r.x, r.y + r.height - textSize.y}, fontSize, 1, WHITE);
+    // }
 
-    // printf("TEXT SIZE %f %f\n", textSize.x, textSize.y);
-    
-    for (int i = 0; i < SearchCandidates.count; i++)
-    {
-        Rectangle r = soundBoxItems[i];
-        char *t = TextFormat("%i: %s", i + 1, GetFileName(SearchCandidates.filteredPaths[i]));
-        DrawTextEx(SearchFont, t, (Vector2){r.x, r.y + r.height - textSize.y}, fontSize, 1, WHITE);
-    }
-    
     EndShaderMode();
     GuiSetFont(GetFontDefault());
 
-    if (DebugUILayout)
+    if (soundFileId >= 0 && soundFileId < SoundboardFiles.count)
     {
-        DrawRectangleLinesEx(searchBoxOuter, 1, RED);
-        DrawRectangleLinesEx(searchBoxInner, 1, GREEN);
-        DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
+        const char *soundPath = SoundboardFiles.paths[soundFileId];
+        assert(soundPath);
+
+        if (FileExists(soundPath))
+        {
+            if (IsSoundPlaying(soundToPlay))
+            {
+                StopSound(soundToPlay);
+            }
+
+            UnloadSound(soundToPlay);
+            soundToPlay = LoadSound(soundPath);
+            PlaySound(soundToPlay);
+        }
     }
 
-    // static Sound soundToPlay;
+    if (IsSoundPlaying(soundToPlay) && IsMouseButtonPressed(MOUSE_BUTTON_RIGHT))
+    {
+        StopSound(soundToPlay);
+    }
 
     // if (keyNumberPressed != 0)
     // {
@@ -728,6 +801,13 @@ void RunSearch()
     //         }
     //     }
     // }
+
+    if (DebugUILayout)
+    {
+        DrawRectangleLinesEx(searchBoxOuter, 1, RED);
+        DrawRectangleLinesEx(searchBoxInner, 1, GREEN);
+        DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
+    }
 }
 
 void RunFromSearch()

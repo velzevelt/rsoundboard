@@ -73,3 +73,83 @@ int RectCalcFontSize(Rectangle target, Font font, const char *text, float spacin
     return n;
 }
 
+
+
+bool IsRectListValid(RectangleList list)
+{
+    return list.items != NULL && list.capacity > 0;
+}
+
+void AddRectListItem(RectangleList list, Rectangle item)
+{
+    if (!IsRectListValid(list))
+    {
+        return;
+    }
+    
+    // Check if we need to resize
+    if (list.count >= list.capacity)
+    {
+        // Double the capacity (or set to 1 if it was 0)
+        size_t new_capacity = list.capacity == 0 ? 1 : list.capacity * 2;
+        Rectangle *new_items = realloc(list.items, new_capacity * sizeof(Rectangle));
+        
+        if (new_items == NULL)
+        {
+            return; // Allocation failed
+        }
+        
+        list.items = new_items;
+        list.capacity = new_capacity;
+    }
+    
+    // Add the new item
+    list.items[list.count++] = item;
+}
+
+void AddRectListItems(RectangleList list, Rectangle *items, size_t itemsSize)
+{
+    if (!IsRectListValid(list) || items == NULL || itemsSize == 0)
+    {
+        return;
+    }
+    
+    // Check if we have enough capacity
+    if (list.count + itemsSize > list.capacity)
+    {
+        size_t new_capacity = list.count + itemsSize;
+        Rectangle *new_items = realloc(list.items, new_capacity * sizeof(Rectangle));
+        
+        if (new_items == NULL)
+        {
+            return; // Allocation failed
+        }
+        
+        list.items = new_items;
+        list.capacity = new_capacity;
+    }
+    
+    // Copy all items
+    memcpy(list.items + list.count, items, itemsSize * sizeof(Rectangle));
+    list.count += itemsSize;
+}
+
+void UnloadRectList(RectangleList list)
+{
+    if (list.items != NULL)
+    {
+        free(list.items);
+        // Note: The list struct itself still exists, but its items are freed
+        // The caller should set list.items to NULL and list.count/capacity to 0
+    }
+}
+
+void ClearRectList(RectangleList list)
+{
+    if (IsRectListValid(list))
+    {
+        memset(list.items, 0, list.count);
+        list.count = 0;
+        // Memory remains allocated, capacity unchanged
+    }
+}
