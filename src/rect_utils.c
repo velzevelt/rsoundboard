@@ -72,3 +72,4 @@ int RectCalcFontSize(Rectangle target, Font font, const char *text, float spacin
     int n = nX > nY ? nY : nX;
     return n;
 }
+

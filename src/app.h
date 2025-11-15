@@ -11,11 +11,9 @@ void RunSoundboardStatus();
 void RunToSearch();
 void RunSearch();
 void RunFromSearch();
-FilePathList SearchInFileList(FilePathList *list, const char *search);
 
-Rectangle RectToScreen(Rectangle rect, int scrWidth, int scrHeight);
-Rectangle RectPadding(Rectangle rect, float pTop, float pBottom, float pRight, float pLeft);
-int RectCalcFontSize(Rectangle target, Font font, const char *text, float spacing);
+void CalculateSquareTableLayout(size_t items, size_t* columns, size_t* rows);
+const char *FindLongestFileName(FilePathList *list);
 
 float GetAbsoluteScreenScaleX();
 float GetAbsoluteScreenScaleY();

@@ -12,6 +12,8 @@
 #include <search_file.h>
 #include <string.h>
 #include <text_input_box.h>
+#include <math.h>
+
 
 typedef enum
 {
@@ -41,6 +43,7 @@ static const char *SoundboardDir = NULL;
 static LOADING_STATE SoundboardDirLoadingState;
 static FilePathList SoundboardFiles;
 static FilteredFilePathList SearchCandidates;
+static const char *SoundboardLongestFileName;
 
 static Rectangle BeforeSearchWindow = {0};
 static Font SearchFont;
@@ -55,7 +58,7 @@ static int SearchTextLetterCount = 0;
 // const char *soundExtensions = ".wav;.mp3";
 #define SUPPORTED_SOUND_EXTENSIONS ".wav"
 
-static bool DebugUILayout;
+static bool DebugUILayout = true;
 
 int main(void)
 {
@@ -431,6 +434,10 @@ void RunSoundboardLoading()
             SoundboardFiles = LoadDirectoryFilesEx(SoundboardDir, SUPPORTED_SOUND_EXTENSIONS, true);
             SoundboardDirLoadingState = LD_DONE;
             SearchCandidates = SearchInFileListNoAlloc(&SoundboardFiles, "", SEARCH_ITEMS_MAX);
+
+            SoundboardLongestFileName = FindLongestFileName(&SoundboardFiles);
+            // printf("LONGEST FILE %s\n", SoundboardLongestFileName);
+
             AppState = SOUNDBOARD_STATUS;
         }
     }
@@ -670,16 +677,23 @@ void RunSearch()
         printf("Search can %i\n", SearchCandidates.count);
     }
 
-    fontSize = 16 * GetScreenScale();
 
+    Vector2 textSize = {0};
+    if (SearchCandidates.count > 0)
+    {
+        fontSize = RectCalcFontSize(soundBoxItems[0], SearchFont, SoundboardLongestFileName, 1);
+        textSize = MeasureTextEx(SearchFont, SoundboardLongestFileName, fontSize, 1);
+    }
+
+    // printf("TEXT SIZE %f %f\n", textSize.x, textSize.y);
+    
     for (int i = 0; i < SearchCandidates.count; i++)
     {
         Rectangle r = soundBoxItems[i];
         char *t = TextFormat("%i: %s", i + 1, GetFileName(SearchCandidates.filteredPaths[i]));
-
-        Vector2 textSize = MeasureTextEx(SearchFont, t, fontSize, 1);
-        DrawTextEx(SearchFont, t, (Vector2){r.x, r.y + textSize.y * 0.5f}, fontSize, 1, WHITE);
+        DrawTextEx(SearchFont, t, (Vector2){r.x, r.y + r.height - textSize.y}, fontSize, 1, WHITE);
     }
+    
     EndShaderMode();
     GuiSetFont(GetFontDefault());
 
@@ -690,30 +704,30 @@ void RunSearch()
         DrawRectangleLinesEx(soundBoxOuter, 1, ORANGE);
     }
 
-    static Sound soundToPlay;
+    // static Sound soundToPlay;
 
-    if (keyNumberPressed != 0)
-    {
-        int itemId = keyNumberPressed - 1;
-        
-        if (itemId < SearchCandidates.count)
-        {
-            const char *soundPath = SearchCandidates.filteredPaths[itemId];
-            assert(soundPath);
+    // if (keyNumberPressed != 0)
+    // {
+    //     int itemId = keyNumberPressed - 1;
 
-            if (FileExists(soundPath))
-            {
-                if (IsSoundPlaying(soundToPlay))
-                {
-                    StopSound(soundToPlay);
-                }
+    //     if (itemId < SearchCandidates.count)
+    //     {
+    //         const char *soundPath = SearchCandidates.filteredPaths[itemId];
+    //         assert(soundPath);
 
-                UnloadSound(soundToPlay);
-                soundToPlay = LoadSound(soundPath);
-                PlaySound(soundToPlay);
-            }
-        }
-    }
+    //         if (FileExists(soundPath))
+    //         {
+    //             if (IsSoundPlaying(soundToPlay))
+    //             {
+    //                 StopSound(soundToPlay);
+    //             }
+
+    //             UnloadSound(soundToPlay);
+    //             soundToPlay = LoadSound(soundPath);
+    //             PlaySound(soundToPlay);
+    //         }
+    //     }
+    // }
 }
 
 void RunFromSearch()
@@ -858,4 +872,69 @@ char *TextInputBox(Rectangle bounds, const char *placeholder, char *text, int ma
     {
         return NULL;
     }
+}
+
+void CalculateSquareTableLayout(size_t items, size_t *columns, size_t *rows)
+{
+    if (items == 0)
+    {
+        *columns = 0;
+        *rows = 0;
+        return;
+    }
+
+    // Calculate approximate square root
+    size_t base = (size_t)sqrt((double)items);
+
+    // Start with base as columns, calculate rows needed
+    *columns = base;
+    *rows = (items + *columns - 1) / *columns; // Ceiling division
+
+    // If the layout is reasonable (rows not much larger than columns), use it
+    if (*rows <= *columns + 1)
+    {
+        return;
+    }
+
+    // Otherwise, try columns = base + 1
+    *columns = base + 1;
+    *rows = (items + *columns - 1) / *columns;
+
+    // This should give us a layout where we have the "extra column"
+    // and rows <= columns (or very close to it)
+}
+
+const char *FindLongestFileName(FilePathList *list)
+{
+    assert(list);
+
+    char **items = list->paths;
+    size_t count = list->count;
+
+    if (items == NULL || count == 0)
+    {
+        return NULL;
+    }
+
+    const char *longest = GetFileName(items[0]);
+    size_t max_length = strlen(GetFileName(items[0]));
+
+    // Iterate through the array starting from the second element
+    for (size_t i = 1; i < count; i++)
+    {
+        // Skip NULL pointers
+        if (GetFileName(items[i]) == NULL)
+        {
+            continue;
+        }
+
+        size_t current_length = strlen(GetFileName(items[i]));
+        if (current_length > max_length)
+        {
+            max_length = current_length;
+            longest = GetFileName(items[i]);
+        }
+    }
+
+    return longest;
 }
